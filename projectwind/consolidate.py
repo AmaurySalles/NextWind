@@ -8,13 +8,13 @@ def concatenate_df():
     rawdir = os.path.join(parentdir,"raw_data")
 
     # init global DF
-    globalDF = pd.DataFrame()
+    global_df = pd.DataFrame()
     
     # Append all csv files with correct suffix to dataframe
     global_df = pd.DataFrame()
-
     for root, directory, file in os.walk(rawdir):
         for WTG_number in range (len(file)):
+            print(file[WTG_number])
             if 'csv' in file[WTG_number]:
                 temp = pd.read_csv(root +'/' +file[WTG_number], 
                                     index_col=0,
@@ -34,10 +34,7 @@ def concatenate_df():
                     elif 'Pitch' in col:
                         global_df[f'Blade Pitch {WTG_number+1}'] = temp[col].copy()
 
-global_df.to_csv('../projectwind/data/raw_data.csv')
-
-            
-
+    global_df.to_csv('./data/raw_data.csv')
 
 if __name__ =="__main__":
     df =concatenate_df()
