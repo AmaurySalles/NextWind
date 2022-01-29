@@ -1,9 +1,6 @@
 import pandas as pd
 import numpy as np
 
-def nacelle():
-
-
 def add_timestamps():
     results = {}
     for file in dataframes.keys():
