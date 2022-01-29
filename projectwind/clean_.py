@@ -17,3 +17,10 @@ def add_timestamps():
         results[file] = new_df
     results['A02.csv'].drop(columns='Unnamed: 7',inplace= True)
     return results
+
+def fill_na_with_mean(column):
+    column.fillna('', inplace=True)
+    for i in range(len(column)):
+          if column[i] == '' :
+                column[i] = (column[i-1] + column[i+1])/2
+    return column
