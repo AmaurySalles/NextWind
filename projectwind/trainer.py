@@ -44,3 +44,4 @@ if __name__ == "__main__":
     for data_sample in samples:
         scaled_sampled.append(pipeline.transform(data_sample))
 
+    # Extract X & y
