@@ -57,10 +57,6 @@ def pipeline(data):
 
     return preprocessor
 
-if __name__ == "__main__":
 
-
-    pipeline.fit(all_data)
-    pipeline.transform(for i in sequence)
     
     
