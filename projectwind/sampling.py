@@ -25,6 +25,7 @@ def subsample_sequence(results, day_length, number_of_subsamples, acceptable_lev
             subsamples.append(df_sample)
     return subsamples
 
+
 def split_subsample_sequence(results, day_length, number_of_sumbsamples, acceptable_level_of_missing_values = 0.1):
     '''
     Create one single random (X,y) pair
