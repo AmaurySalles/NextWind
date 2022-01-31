@@ -8,22 +8,22 @@ from projectwind.pipeline import get_pipeline
 
 def trainer():
 
-    # Get data & perform splits
+    # Get data & perform  splits
     data, fit_data, = get_data()
-    train_data, test_data = split_test_data()
-    X_fit, y_fit = split_fit_data(fit_data)
+    #train_data, test_data = split_test_data()
+    #X_fit, y_fit = split_fit_data(fit_data)
     #clean_data = clean_data(train_data)
     
     # Pipeline fit
     pipeline = get_pipeline()
     pipeline.fit(fit_data)
     
-    # Sample transform
+    # Fetch sequences & transform
     scaled_samples = []
-    for WTG in train_data:
-        X_sample, y_sample = split_subsample_sequence(train_data[WTG],
+    for WTG in data:
+        X_sample, y_sample = split_subsample_sequence(data[WTG],
                                     day_length=5.5, 
-                                    numer_of_subsamples=10,
+                                    numer_of_subsamples=10,  # Starting small with only 10 samples / WTG
                                     acceptable_level_of_missing_values=0.1)
         
         for i in range(len(X_sample)):
@@ -31,7 +31,7 @@ def trainer():
 
     print(scaled_samples)
     
-    # Save samples for quicker upload time
+    # Save sequences for quicker upload time
     samples_csv_zip = pd.DataFrame()
     for sample in scaled_samples:
         samples_csv_zip = pd.concat((samples_csv_zip,sample),ignore_index=False)
