@@ -12,7 +12,7 @@ def get_data():
     
     # Append all csv data files to a dict("WTG_number" : dataframe)
     for root, directory, file in os.walk(rawdir):
-        for WTG_number in range (len(file)):
+        for WTG_number in range (5):  # 5 to reduce load time, replace by `len(file)`
             
             # File for initial analysis
             if 'raw_data.csv' in file[WTG_number]:
@@ -21,18 +21,19 @@ def get_data():
             # File containing scaler fit data (no need for cleaning as there are no outliers)
             # Format: timesteps concatenated / only 6 columns
             elif 'fit_data.csv' in file[WTG_number]:
-                fit_data = pd.read_csv(root +'/' +file[WTG_number], 
-                                        index_col=0,
-                                        parse_dates=True,
-                                        dayfirst=True)
+                pass
+                # fit_data = pd.read_csv(root +'/' +file[WTG_number], 
+                #                         index_col=0,
+                #                         parse_dates=True,
+                #                         dayfirst=True)
                 
-                fit_data.rename(columns={"Desalineación Nacelle y Dirección de Viento Media 10M\n(°)": "Misalignment",
-                                        "Media de Potencia Activa 10M\n(kW)": "Power",
-                                        "Posición Nacelle Media 10M\n(°)":"Nacelle Orientation",
-                                        "Velocidad Rotor Media 10M\n(rpm)":"Rotor Speed",
-                                        "Velocidad Viento Media 10M\n(m/s)":"Wind Speed",
-                                        "Ángulo Pitch Media 10M\n(°)":"Blade Pitch"},
-                                        inplace=True)
+                # fit_data.rename(columns={"Desalineación Nacelle y Dirección de Viento Media 10M\n(°)": "Misalignment",
+                #                         "Media de Potencia Activa 10M\n(kW)": "Power",
+                #                         "Posición Nacelle Media 10M\n(°)":"Nacelle Orientation",
+                #                         "Velocidad Rotor Media 10M\n(rpm)":"Rotor Speed",
+                #                         "Velocidad Viento Media 10M\n(m/s)":"Wind Speed",
+                #                         "Ángulo Pitch Media 10M\n(°)":"Blade Pitch"},
+                #                         inplace=True)
 
             
             # Train/Val/Test dataset
@@ -52,20 +53,27 @@ def get_data():
                                      inplace=True)
 
                 all_WTG_data[WTG_number] = data
+
+                # Prepare df containing scaler fit data (no need for cleaning as there are no outliers)
+                # Format: timesteps concatenated / only 6 columns
+                fit_data = pd.DataFrame()
+                for WTG_number in all_WTG_data:
+                    fit_data = pd.concat((fit_data,all_WTG_data[WTG_number]),ignore_index=True)
     
 
     return all_WTG_data, fit_data
 
 
 def split_test_data(data):
-    
-    
+    data_length = len(data[0].shape)
+    train_data = [data[WTG].iloc[0:-int(data_length*0.8)] for WTG in data]
+    test_data = [data[WTG].iloc[-int(data_length*0.8):] for WTG in data]
     return train_data, test_data
 
 
 def split_fit_data(fit_data):
-    
-    
+    y_fit = fit_data.pop('Power')
+    X_fit = fit_data
     return X_fit, y_fit
 
 
