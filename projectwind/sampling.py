@@ -1,9 +1,7 @@
 import pandas as pd
 import numpy as np
 
-########## CHANGES! #############
-
-def get_sequences(WTG_data, day_length, number_of_subsamples, acceptable_level_of_missing_values = 0.1):
+def get_sequences(WTG_data, day_length, number_of_subsamples, acceptable_level_of_missing_values):
     """
     Given a dataframes `data`, return a list of sequences of number_of_subsamples and of `day_length` index, with % of acceptable_missing_values.
     """
@@ -29,7 +27,7 @@ def get_sequences(WTG_data, day_length, number_of_subsamples, acceptable_level_o
     return WTG_samples
 
 
-def get_clean_sequences(data, fitted_pipeline, day_length, number_of_subsamples, acceptable_level_of_missing_values = 0.1):
+def get_clean_sequences(data, fitted_pipeline, day_length, number_of_subsamples, acceptable_level_of_missing_values = 0.01):
     '''
     Create one single random (X,y) array pair containing clean & scaled data sequences.
     Sequences of number_of_subsamples and of `day_length` index, with % of acceptable_missing_values.
@@ -37,7 +35,7 @@ def get_clean_sequences(data, fitted_pipeline, day_length, number_of_subsamples,
     sequence_length = int(day_length*6*24)
     
     # Collect list of sequences from each WTG - returns scaled & clean data
-    sequence_list = get_sequences(data, day_length, number_of_subsamples, acceptable_level_of_missing_values = 0.1)
+    sequence_list = get_sequences(data, day_length, number_of_subsamples, acceptable_level_of_missing_values)
     
     # Split into 
     Y, X = [], []

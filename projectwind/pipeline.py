@@ -8,7 +8,7 @@ from sklearn.preprocessing import FunctionTransformer
 from sklearn.base import TransformerMixin, BaseEstimator
 from sklearn.compose import ColumnTransformer
 
-# Customer Transformers
+# Custom Transformers
 def degree_converter():
     return FunctionTransformer(lambda x: x if x <=180 else 360 - x )
 
