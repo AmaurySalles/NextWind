@@ -27,11 +27,11 @@ def trainer():
                                 acceptable_level_of_missing_values=0.03)
 
     
-    print(samples)
+    print(samples) # 3D array with sequences, timesteps & features
     
     # Shuffle WTG sequences & target
     
-    # Save sequences for quicker upload time
+    # Save sequences for quicker upload time8
     if fetch_data(True):
         np.save
     # samples_csv_zip = pd.DataFrame()
