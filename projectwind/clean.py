@@ -1,10 +1,10 @@
 import pandas as pd
 import numpy as np
 
-def add_timestamps():
+def add_timestamps(raw_data):
     results = {}
-    for file in dataframes.keys():
-        df = dataframes[file]
+    for file in raw_data.keys():
+        df = raw_data[file]
         df['Fecha'] = pd.to_datetime(df['Fecha'])
         df.set_index('Fecha',inplace=True)
         ref_date_range = pd.date_range(start='1/05/2019', end='30/09/2021',freq='10T')

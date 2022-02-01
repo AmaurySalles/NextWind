@@ -2,6 +2,7 @@ import pandas as pd
 import numpy as np
 
 from projectwind.data import get_data, split_test_data, split_fit_data
+from projectwind.clean import add_timestamps
 from projectwind.sampling import get_clean_sequences
 from projectwind.pipeline import get_pipeline
 
@@ -9,6 +10,7 @@ def trainer():
 
     # Get data & perform  splits
     data, fit_data, = get_data()
+    data = add_timestamps(data)   # TODO Does not work - need to integrate function, so that it runs dict("WTG":pd.DataFrame)
     train_data, test_data = split_test_data(data)
     X_fit, y_fit = split_fit_data(fit_data)
 
