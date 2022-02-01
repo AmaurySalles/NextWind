@@ -3,16 +3,12 @@ import numpy as np
 
 def add_timestamps(raw_data):
     results = {}
-    for file in raw_data.keys():
-        df = raw_data[file]
-        df['Fecha'] = pd.to_datetime(df['Fecha'])
-        df.set_index('Fecha',inplace=True)
+    for file_number in range(5):
+        df = raw_data[file_number]
         ref_date_range = pd.date_range(start='1/05/2019', end='30/09/2021',freq='10T')
         ref_df = pd.DataFrame(index=ref_date_range)
         clean_data = df.reindex(ref_df.index)
-        new_df = pd.merge(ref_df,clean_data,left_index=True, right_index=True,how='outer')
-        results[file] = new_df
-    results['A02.csv'].drop(columns='Unnamed: 7',inplace= True)
+        results[file_number] = clean_data
     return results
 
 # def fill_na_with_mean(column):
@@ -21,6 +17,3 @@ def add_timestamps(raw_data):
 #           if column[i] == '' :
 #                 column[i] = (column[i-1] + column[i+1])/2
 #     return column
-
-
-
