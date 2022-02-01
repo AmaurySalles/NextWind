@@ -1,47 +1,54 @@
 import pandas as pd
 import numpy as np
-import sklearn
 
-from projectwind.clean import clean_data
-from projectwind.clean import pipeline
+from projectwind.data import get_data, split_test_data, split_fit_data
+from projectwind.clean import add_timestamps
+from projectwind.sampling import get_clean_sequences
+from projectwind.pipeline import get_pipeline
 
-# Get data & split test data
+def trainer():
 
-# Get sequence samples
+    # Get data & perform  splits
+    data, fit_data, = get_data()
+    #data = add_timestamps(data)   # TODO Does not work - need to integrate function, so that it runs dict("WTG":pd.DataFrame)
+    train_data, test_data = split_test_data(data)
+    X_fit, y_fit = split_fit_data(fit_data)
 
-# Clean sequence samples (remaining missing timesteps)
+    
+    # Pipeline fit
+    pipeline = get_pipeline()
+    pipeline.fit(X_fit)
+    
+    # Transform data & fetch sequences
+    samples = get_clean_sequences(train_data,
+                                fitted_pipeline=pipeline,
+                                day_length=5.5, 
+                                number_of_subsamples=100,  # Starting small with only 100 samples / WTG
+                                acceptable_level_of_missing_values=0.03)
 
-# Scale sequence samples
+    
+    print(samples)
+    
+    # Shuffle WTG sequences & target
+    
+    # Save sequences for quicker upload time
+    if fetch_data(True):
+        np.save
+    # samples_csv_zip = pd.DataFrame()
+    # for sample in scaled_samples:
+    #     samples_csv_zip = pd.concat((samples_csv_zip,sample),ignore_index=False)
+    # samples_csv_zip.to_csv('./data/samples.csv')
 
-# Split train/eval samples
+    # Load samples
+    np.load
+    # Get model
 
-# Get model
+    # Train model
 
-# Train model
+    # Predict (test pipeline)
 
-# Predict (test pipeline)
-
-
-
-def get_data():
-    data = pd.read_csv("./raw_data/A01.csv")
-    #data = clean_data(data)
-    return data
-
-def prep_data():
-    pass    
+  
 
 if __name__ == "__main__":
-
-    # Pipeline fit
-    full_data = get_data()
-    pipeline = pipeline()
-    pipeline.fit(full_data)
+    trainer()
     
-    # Sample transform
-    samples = fetch_samples()
-    scaled_sampled = []
-    for data_sample in samples:
-        scaled_sampled.append(pipeline.transform(data_sample))
-
-    # Extract X & y
