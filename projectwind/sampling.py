@@ -14,7 +14,7 @@ def get_sequences(WTG_data, day_length, number_of_subsamples, acceptable_level_o
 
     # Select random samples with acceptable missing values levels 
     while len(WTG_samples) < number_of_subsamples :
-        if counter < 100:
+        if counter < 10_000:
             # Randomise start
             random_start = np.random.randint(0, last_possible_index)
 

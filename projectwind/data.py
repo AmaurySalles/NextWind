@@ -13,7 +13,7 @@ def get_data():
     
     # Append all csv data files to a dict("WTG_number" : dataframe)
     for root, directory, file in os.walk(rawdir):
-        for WTG_number in range (5):  # 5 to reduce load time, replace by `len(file)`
+        for WTG_number in range (len(file)):
             
             # File for initial analysis
             if 'raw_data.csv' in file[WTG_number]:
@@ -22,7 +22,7 @@ def get_data():
             # File containing scaler fit data (no need for cleaning as there are no outliers)
             # Format: timesteps concatenated / only 6 columns
             elif 'fit_data.csv' in file[WTG_number]:
-                pass
+                pass # No longer in use
             
             # Train/Val/Test dataset
             # Format: Dataframe per WTG assembled in a dict("WTG_number": dataframe)
@@ -39,9 +39,6 @@ def get_data():
                                      "Velocidad Viento Media 10M\n(m/s)":"Wind Speed",
                                      "Ángulo Pitch Media 10M\n(°)":"Blade Pitch"},
                                      inplace=True)
-                # TODO!! 
-                # Add missing timstamps function
-
 
                 all_WTG_data[WTG_number] = data
 
