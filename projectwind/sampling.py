@@ -39,7 +39,7 @@ def get_sequences(WTG_data, day_length, number_of_subsamples, acceptable_level_o
     return WTG_samples
 
 
-def get_clean_sequences(data, fitted_pipeline, day_length, number_of_subsamples, acceptable_level_of_missing_values = 0.01):
+def get_clean_sequences(data, fitted_pipeline, day_length=5.5, number_of_subsamples=100, acceptable_level_of_missing_values = 0.03):
     '''
     Create one single random (X,y) array pair containing clean & scaled data sequences.
     Sequences of number_of_subsamples and of `day_length` index, with % of acceptable_missing_values.

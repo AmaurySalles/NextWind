@@ -9,6 +9,7 @@ def get_data():
 
     # Output dict
     all_WTG_data = {}
+    fit_data = pd.DataFrame()
     
     # Append all csv data files to a dict("WTG_number" : dataframe)
     for root, directory, file in os.walk(rawdir):
@@ -22,19 +23,6 @@ def get_data():
             # Format: timesteps concatenated / only 6 columns
             elif 'fit_data.csv' in file[WTG_number]:
                 pass
-                # fit_data = pd.read_csv(root +'/' +file[WTG_number], 
-                #                         index_col=0,
-                #                         parse_dates=True,
-                #                         dayfirst=True)
-                
-                # fit_data.rename(columns={"Desalineación Nacelle y Dirección de Viento Media 10M\n(°)": "Misalignment",
-                #                         "Media de Potencia Activa 10M\n(kW)": "Power",
-                #                         "Posición Nacelle Media 10M\n(°)":"Nacelle Orientation",
-                #                         "Velocidad Rotor Media 10M\n(rpm)":"Rotor Speed",
-                #                         "Velocidad Viento Media 10M\n(m/s)":"Wind Speed",
-                #                         "Ángulo Pitch Media 10M\n(°)":"Blade Pitch"},
-                #                         inplace=True)
-
             
             # Train/Val/Test dataset
             # Format: Dataframe per WTG assembled in a dict("WTG_number": dataframe)
@@ -51,12 +39,14 @@ def get_data():
                                      "Velocidad Viento Media 10M\n(m/s)":"Wind Speed",
                                      "Ángulo Pitch Media 10M\n(°)":"Blade Pitch"},
                                      inplace=True)
+                # TODO!! 
+                # Add missing timstamps function
+
 
                 all_WTG_data[WTG_number] = data
 
                 # Prepare df containing scaler fit data (no need for cleaning as there are no outliers)
                 # Format: timesteps concatenated / only 6 columns
-                fit_data = pd.DataFrame()
                 for WTG_number in all_WTG_data:
                     fit_data = pd.concat((fit_data,all_WTG_data[WTG_number]),ignore_index=True)
     
