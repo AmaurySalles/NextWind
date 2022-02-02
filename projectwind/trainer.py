@@ -5,17 +5,15 @@ import numpy as np
 from numpy import save
 from numpy import load
 
-from projectwind.clean import add_timestamps
+from projectwind.data import get_samples
 from projectwind.pipeline import get_pipeline
 
-def trainer(sample_size=10_000):
-    # Load samples
-    X_samples = np.load(f'./projectwind/data/{sample_size}_sequence_X_samples.npy')
-    y_samples = np.load(f'./projectwind/data/{sample_size}_sequence_y_samples.npy')
+def trainer():
 
-    print(X_samples.shape)
-    print(y_samples.shape)
-
+    # Load data
+    X_train, y_train = get_samples(model_type='DL', sample_size=10_000)
+    print(X_train.shape)
+    print(y_train.shape)
 
     # Get model
 
@@ -23,7 +21,7 @@ def trainer(sample_size=10_000):
 
     # Predict (test pipeline)
 
-  
+    return X_train, y_train
 
 if __name__ == "__main__":
     trainer()
