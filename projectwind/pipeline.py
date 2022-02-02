@@ -32,7 +32,7 @@ class Interpolate_Imputer(TransformerMixin, BaseEstimator):
 
 # Pipeline
 def get_pipeline():
-    
+
     # Wind Speed
     wind_speed_pipe = Pipeline([
         ('imputer', Interpolate_Imputer()),
@@ -68,10 +68,18 @@ def get_pipeline():
 
     ])
 
+    # Power Pitch
+    power_pipe = Pipeline([
+        ('imputer', Interpolate_Imputer()),
+        ('scaler', MinMaxScaler())
+
+    ])
+
 
     # Pre-processor
     preprocessor = ColumnTransformer([
         ('wind_speed', wind_speed_pipe, ['Wind Speed']),
+        ('power_pitch', power_pipe, ["Power"]),
         ('nacelle_dir', nacelle_dir_pipe, ['Nacelle Orientation']),
         ('misalignment', misalignment_pipe, ['Misalignment']),
         ('rotor_speed', rotor_speed_pipe, ['Rotor Speed']),
