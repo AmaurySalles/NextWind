@@ -39,7 +39,6 @@ def get_pipeline():
         ('scaler', StandardScaler())
     ])
 
-
     # Nacelle Direction
     nacelle_dir_pipe = Pipeline([
         ('imputer', Interpolate_Imputer()),
