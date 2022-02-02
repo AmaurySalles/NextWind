@@ -53,7 +53,7 @@ def get_data():
 
     # Append all csv data files to a dict("WTG_number" : dataframe)
     for root, directory, file in os.walk(rawdir):
-        for WTG_number in range (1):
+        for WTG_number in range (len(file)):
             print(WTG_number)
             # Train/Val/Test dataset
             # Output format: Dataframe per WTG assembled in a dict("WTG_number": dataframe)
