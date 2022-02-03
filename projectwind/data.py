@@ -6,17 +6,16 @@ from projectwind.clean import add_timestamps
 from projectwind.sampling import get_clean_sequences
 from projectwind.pipeline import get_pipeline
 
-def get_samples(model_type='DL', sample_size=10_000):
+def get_samples(sample_size=10_000):
     
-    if model_type == 'DL':
-        # Load data
-        X_train_samples = np.load(f'./projectwind/data/{sample_size}_sequence_X_samples.npy')
-        y_train_samples = np.load(f'./projectwind/data/{sample_size}_sequence_y_samples.npy')
+    # Load data
+    X_train_samples = np.load(f'./projectwind/data/{sample_size}_sequence_X_samples.npy')
+    y_train_samples = np.load(f'./projectwind/data/{sample_size}_sequence_y_samples.npy')
 
-        print(X_train_samples.shape)
-        print(y_train_samples.shape)
+    print(X_train_samples.shape)
+    print(y_train_samples.shape)
 
-        return X_train_samples, y_train_samples
+    return X_train_samples, y_train_samples
 
 
 def init_samples(day_length=5.5, number_of_subsamples=100, acceptable_level_of_missing_values=0.05):
@@ -60,10 +59,10 @@ def get_data():
     # Take the parent dirname for the raw data
     parentdir = os.path.dirname(os.path.abspath("__file__"))
     rawdir = os.path.join(parentdir,"raw_data")
+    print(rawdir)
 
     # Output dict
     all_WTG_data = {}
-    fit_data = pd.DataFrame()
     
     # Append all csv data files to a dict("WTG_number" : dataframe)
     for root, directory, file in os.walk(rawdir):
@@ -86,13 +85,7 @@ def get_data():
 
             all_WTG_data[WTG_number] = data
 
-    # Prepare df containing scaler fit data (no need for cleaning as there are no outliers)
-    # Format: timesteps concatenated / only 6 columns
-    for WTG_number in all_WTG_data:
-        fit_data = pd.concat((fit_data,all_WTG_data[WTG_number]),ignore_index=True)
-    
-
-    return all_WTG_data, fit_data
+    return all_WTG_data
 
 
 def split_test_data(data):
