@@ -103,7 +103,7 @@ def split_test_data(data):
 
 
 def split_fit_data(fit_data):
-    y_fit = fit_data['Power']
+    y_fit = fit_data.pop('Power')
     X_fit = fit_data
     return X_fit, y_fit
 
