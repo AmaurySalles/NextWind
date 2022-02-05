@@ -7,6 +7,7 @@ from projectwind.LSTM_preproc import get_random_sequences
 from projectwind.pipeline import get_pipeline
 
 
+<<<<<<< HEAD
 def get_samples(data, fit_data, day_length=5.5, number_of_subsamples=100, acceptable_level_of_missing_values=0.05):
 
     # Get data & perform  splits
@@ -33,16 +34,15 @@ def get_samples(data, fit_data, day_length=5.5, number_of_subsamples=100, accept
 
     # Save sequences for quicker upload time
     X, Y = samples
+=======
+>>>>>>> f0495e4f94d1883072430aa8dabe9a8ffd3140c1
 
-    print(X.shape)
-    print(Y.shape)
+def get_data(num_datasets=25):
 
-    np.save(f'./projectwind/data/{number_of_subsamples}_sequence_X_samples.npy', X)
-    np.save(f'./projectwind/data/{number_of_subsamples}_sequence_y_samples.npy', Y)
-
-    return samples
-
+<<<<<<< HEAD
 def get_data(num_datasets):
+=======
+>>>>>>> f0495e4f94d1883072430aa8dabe9a8ffd3140c1
     # Take the parent dirname for the raw data
     parentdir = os.path.dirname(os.path.abspath("__file__"))
     rawdir = os.path.join(parentdir,"raw_data")
@@ -53,8 +53,15 @@ def get_data(num_datasets):
 
     # Append all csv data files to a dict("WTG_number" : dataframe)
     for root, directory, file in os.walk(rawdir):
+<<<<<<< HEAD
         for WTG_number in range (num_datasets):
             print(WTG_number+1)
+=======
+
+        for WTG_number in range (num_datasets):
+            print(WTG_number+1)
+
+>>>>>>> f0495e4f94d1883072430aa8dabe9a8ffd3140c1
             # Train/Val/Test dataset
             # Output format: Dataframe per WTG assembled in a dict("WTG_number": dataframe)
             data = pd.read_csv(root +'/' +file[WTG_number],
