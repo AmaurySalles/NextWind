@@ -49,19 +49,20 @@ def get_data(num_datasets=25):
 
     return all_WTG_data
 
-
+# To remove?
 def split_test_data(data):
     data_length = len(data[0].shape)
     train_data = [data[WTG].iloc[0:-int(data_length*0.8)] for WTG in data]
     test_data = [data[WTG].iloc[-int(data_length*0.8):] for WTG in data]
     return train_data, test_data
 
+# To remove?
 def split_fit_data(fit_data):
     y_fit = fit_data['Power']
     X_fit = fit_data
     return X_fit, y_fit
 
-    
+ # To remove?   
 def concat_fit_data():
 
     # Take the parent dirname for the raw data

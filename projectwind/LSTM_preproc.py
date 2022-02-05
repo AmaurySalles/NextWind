@@ -28,7 +28,7 @@ def init_LSTM_data(num_datasets=25, day_length=5.5):
         samples = get_sequences(data, day_length)
         X, Y = extract_target_from_sequences(samples, 0.5)
 
-        Y.reshape(Y.shape[0], Y.shape[1], 1)
+        Y = Y.reshape(Y.shape[0], Y.shape[1], 1)
         print(X.shape)
         print(Y.shape)
     
@@ -118,16 +118,17 @@ def extract_target_from_sequences(sequence_list, target_day_length):
     return np.array(X), np.array(Y)
 
 
-def load_LSTM_data(sample_size=10_000):
+def load_LSTM_data(path='./projectwind/data/'):
     
     # Load data
-    X_train_samples = np.load(f'./projectwind/data/{sample_size}_sequence_X_samples.npy')
-    y_train_samples = np.load(f'./projectwind/data/{sample_size}_sequence_y_samples.npy')
+    X_train = np.load(f'{path}/LSTM_sequence_train_X_samples.npy')
+    y_train = np.load(f'{path}/LSTM_sequence_train_y_samples.npy')
+    X_val = np.load(f'{path}/LSTM_sequence_val_X_samples.npy')
+    y_val = np.load(f'{path}/LSTM_sequence_val_y_samples.npy')
+    X_test = np.load(f'{path}/LSTM_sequence_test_X_samples.npy')
+    y_test = np.load(f'{path}/LSTM_sequence_test_y_samples.npy')
 
-    print(X_train_samples.shape)
-    print(y_train_samples.shape)
-
-    return X_train_samples, y_train_samples
+    return X_train, y_train, X_val, y_val, X_test, y_test
 
 
 

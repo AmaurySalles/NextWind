@@ -34,15 +34,7 @@ def clean_timesteps(data):
     
     return results
 
-def clean_LSTM_data(data):
-    """
-    Cleans data.values
-    # Interpolates each colum along its index (chronologically)
-    """
-    for WTG_data in data:
-        WTG_data.interpolate(axis=0, inplace=True)
-    
-    return data
+
 
 
 # def fill_na_with_mean(column):

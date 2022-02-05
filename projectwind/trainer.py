@@ -16,20 +16,9 @@ from tensorflow.keras.callbacks import EarlyStopping
 def LSTM_trainer():
 
     # Load data       - TODO fetch all at once (X_train, X_val, X_test, y_train, y_val, y_test) for a specific sample size
-    X_train, y_train = load_LSTM_data(sample_size=10_000)
+    X_train, y_train, X_val, y_val, X_test, y_test = load_LSTM_data()
     #X_test, y_test = load_LSTM_test_data()
     
-    # Preprocess data   - TODO should be done before data is saved. 
-    y_train = y_train.reshape(y_train.shape[0], y_train.shape[1], 1)
-    X_train, y_train = preproc_LSTM_data(X_train, y_train)
-
-    # Train/Val split - TODO should be done before data is saved. 
-    train_val_split = int(0.8 * X_train.shape[0])
-    X_val = X_train[train_val_split:]
-    y_val = y_train[train_val_split:]
-    X_train = X_train[0:train_val_split]
-    y_train = y_train[0:train_val_split]
-
     # Get model
     model = init_LSTM_model(n_steps_in=X_train.shape[1], n_steps_out=y_train.shape[1], n_features=X_train.shape[2])
 
