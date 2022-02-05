@@ -8,7 +8,9 @@ import os
 # Clean timestep data
 # Return dict
 
+
 def get_data(num_datasets=25):
+
     # Take the parent dirname for the raw data
     parentdir = os.path.dirname(os.path.abspath("__file__"))
     rawdir = os.path.join(parentdir,"raw_data")
@@ -19,8 +21,10 @@ def get_data(num_datasets=25):
     
     # Append all csv data files to a dict("WTG_number" : dataframe)
     for root, directory, file in os.walk(rawdir):
+
         for WTG_number in range (num_datasets):
             print(WTG_number+1)
+
             # Train/Val/Test dataset
             # Output format: Dataframe per WTG assembled in a dict("WTG_number": dataframe)
             WTG_data = pd.read_csv(root +'/' +file[WTG_number], 
