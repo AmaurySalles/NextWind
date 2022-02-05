@@ -7,10 +7,10 @@ from projectwind.sampling import get_clean_sequences
 from projectwind.pipeline import get_pipeline
 
 
-def get_samples(day_length=5.5, number_of_subsamples=100, acceptable_level_of_missing_values=0.05):
+def get_samples(data, fit_data, day_length=5.5, number_of_subsamples=100, acceptable_level_of_missing_values=0.05):
 
     # Get data & perform  splits
-    data, fit_data, = get_data()
+    #data, fit_data, = get_data()
     data = add_timestamps(data)
     train_data, test_data = split_test_data(data)
     X_fit, y_fit = split_fit_data(fit_data)
@@ -53,7 +53,7 @@ def get_data():
 
     # Append all csv data files to a dict("WTG_number" : dataframe)
     for root, directory, file in os.walk(rawdir):
-        for WTG_number in range (len(file)):
+        for WTG_number in range (5):
             print(WTG_number)
             # Train/Val/Test dataset
             # Output format: Dataframe per WTG assembled in a dict("WTG_number": dataframe)
