@@ -5,7 +5,7 @@ from tensorflow.keras import Sequential
 from tensorflow.keras.layers import LSTM, Dense#, #BatchNormalisation
 
 
-def get_LSTM_model(n_steps_in, n_steps_out, n_features):
+def init_LSTM_model(n_steps_in, n_steps_out, n_features):
 
     model = Sequential()
     #model.add(BatchNormalisation())
@@ -15,3 +15,4 @@ def get_LSTM_model(n_steps_in, n_steps_out, n_features):
     model.compile(optimizer='adam', loss='mse')
 
     return model
+
