@@ -5,11 +5,11 @@ from pipeline import get_pipeline
 
 
 # 2 variables with the start and end of the data set
-start_data ="2021-07-01 00:00:00"
-end_data = "2019-09-01 00:00:00"
+start_data ="2019-09-01 00:00:00"
+end_data = "2021-07-01 00:00:00"
 #Get the data with the get_data() function
 def data_ml():
-    data, fit_data =get_data()
+    data = get_data()
     #filter the first 4 month and the last 3 month of the dataset
     for index, df in data.items():
         data[index]=df[(df.index>=start_data) & (df.index<end_data)]
@@ -41,5 +41,6 @@ def trainer():
         # Fit the date and set the index
         data[key] = pd.DataFrame(pipe.fit_transform(df), index=ref_date_range)
     return data
+
 if __name__=='__main__':
     print(trainer()[0])
