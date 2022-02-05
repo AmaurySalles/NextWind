@@ -2,7 +2,7 @@ import pandas as pd
 from sklearn.metrics import mean_absolute_error
 
 from projectwind.clean import add_timestamps
-from projectwind.sampling import get_clean_sequences
+from projectwind.LSTM_preproc import get_random_sequences
 from projectwind.pipeline import get_pipeline
 from projectwind.data import get_data, split_fit_data, split_test_data, get_samples, get_pipeline
 

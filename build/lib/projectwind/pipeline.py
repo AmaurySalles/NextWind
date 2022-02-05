@@ -79,10 +79,11 @@ def get_pipeline():
     # Pre-processor
     preprocessor = ColumnTransformer([
         ('wind_speed', wind_speed_pipe, ['Wind Speed']),
-        ('power', power_pipe, ["Power"]),
+        ('power_pitch', power_pipe, ["Power"]),
         ('nacelle_dir', nacelle_dir_pipe, ['Nacelle Orientation']),
         ('misalignment', misalignment_pipe, ['Misalignment']),
         ('rotor_speed', rotor_speed_pipe, ['Rotor Speed']),
-        ('blade_pitch', blade_pitch_pipe, ['Blade Pitch'])])
+        ('blade_pitch', blade_pitch_pipe, ['Blade Pitch'])],
+        remainder='passthrough')
 
     return preprocessor
