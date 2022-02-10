@@ -118,7 +118,7 @@ def extract_target_from_sequences(sequence_list, target_day_length):
     return np.array(X), np.array(Y)
 
 
-def load_LSTM_data(path='./projectwind/data/'):
+def load_LSTM_data(path='./projectwind/data'):
     
     # Load data
     X_train = np.load(f'{path}/LSTM_sequence_train_X_samples.npy')
