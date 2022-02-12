@@ -35,14 +35,20 @@ def get_LSTM_data(num_datasets=25):
 def feature_engineering(WTG_data):
 
     # Find wind direction (by correcting nacelle orientation with misalignment)
-    WTG_data['Misalignment'] = WTG_data['Misalignment'].apply(lambda x: x if x <=180 else (360 - x)*-1)
+    WTG_data['Misalignment'] = WTG_data['Misalignment']* np.pi / 180 # Transform into radians
+    WTG_data['Nacelle Orientation'] = WTG_data['Nacelle Orientation'] * np.pi / 180 # Transform into radians
     WTG_data['Wind_direction'] =  WTG_data['Nacelle Orientation'] - WTG_data['Misalignment']
     
     # Build vectors from wind direction and wind speed
-    WTG_data['Wind_direction'] = WTG_data['Wind_direction'] * np.pi / 180 # Transform into radians
     WTG_data['Wind_X'] = WTG_data['Wind Speed'] * np.cos(WTG_data['Wind_direction'])
     WTG_data['Wind_Y'] = WTG_data['Wind Speed'] * np.sin(WTG_data['Wind_direction'])
-    WTG_data.drop(columns=['Misalignment','Nacelle Orientation'], inplace=True)
+
+    # Build vectors for nacelle orientation    
+    WTG_data['Nacelle_X'] = np.cos(WTG_data['Nacelle Orientation'])
+    WTG_data['Nacelle_Y'] = np.sin(WTG_data['Nacelle Orientation'])
+
+    # Remove superseeded columns, except wind speed
+    WTG_data.drop(columns=['Misalignment','Nacelle Orientation', 'Wind_direction'], inplace=True)
 
     # Transform time into sin/cosine to represent periodicity  
     timestamp_s = WTG_data.index.map(pd.Timestamp.timestamp)
