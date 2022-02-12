@@ -23,6 +23,7 @@ gcloud ai-platform jobs submit training ${JOB_NAME} \
 
 
 
+
 # ----------------------------------
 #          INSTALL & TEST
 # ----------------------------------
@@ -78,3 +79,11 @@ pypi_test:
 
 pypi:
 	@twine upload dist/* -u $(PYPI_USERNAME)
+
+
+
+run_locally:
+	@python -m ${PACKAGE_NAME}.${FILENAME}
+
+run_api:
+	uvicorn api.fast:app --reload

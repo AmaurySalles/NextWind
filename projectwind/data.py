@@ -16,9 +16,9 @@ def get_data(num_datasets=25):
     rawdir = os.path.join(parentdir,"raw_data")
     print(rawdir)
 
-    # Output dict    
+    # Output dict
     all_WTG_data = {}
-    
+
     # Append all csv data files to a dict("WTG_number" : dataframe)
     for root, directory, file in os.walk(rawdir):
 
@@ -27,11 +27,11 @@ def get_data(num_datasets=25):
 
             # Train/Val/Test dataset
             # Output format: Dataframe per WTG assembled in a dict("WTG_number": dataframe)
-            WTG_data = pd.read_csv(root +'/' +file[WTG_number], 
+            WTG_data = pd.read_csv(root +'/' +file[WTG_number],
                                 index_col=0,
                                 parse_dates=True,
                                 dayfirst=True)
-            
+
             WTG_data.rename(columns={"Desalineación Nacelle y Dirección de Viento Media 10M\n(°)": "Misalignment",
                                     "Media de Potencia Activa 10M\n(kW)": "Power",
                                     "Posición Nacelle Media 10M\n(°)":"Nacelle Orientation",
@@ -39,7 +39,7 @@ def get_data(num_datasets=25):
                                     "Velocidad Viento Media 10M\n(m/s)":"Wind Speed",
                                     "Ángulo Pitch Media 10M\n(°)":"Blade Pitch"},
                                     inplace=True)
-            
+
             # Clean data
             # TODO Currently split between DL and ML data - can reconcile and place within this loop?
             # DL part under clean.py
@@ -62,7 +62,7 @@ def split_fit_data(fit_data):
     X_fit = fit_data
     return X_fit, y_fit
 
- # To remove?   
+ # To remove?
 def concat_fit_data():
 
     # Take the parent dirname for the raw data
@@ -89,5 +89,5 @@ def concat_fit_data():
         globalDF = pd.concat((globalDF,df),ignore_index=True)
 
         globalDF.to_csv('./raw_data/fit_data.csv')
-    
+
     return globalDF
