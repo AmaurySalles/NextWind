@@ -17,7 +17,7 @@ def get_data(num_datasets=25):
     print(rawdir)
 
     # Output dict    
-    all_WTG_data = {}
+    all_WTG_data = []
     
     # Append all csv data files to a dict("WTG_number" : dataframe)
     for root, directory, file in os.walk(rawdir):
@@ -25,13 +25,13 @@ def get_data(num_datasets=25):
         for WTG_number in range (num_datasets):
             print(WTG_number+1)
 
-            # Train/Val/Test dataset
-            # Output format: Dataframe per WTG assembled in a dict("WTG_number": dataframe)
+            # Read file
             WTG_data = pd.read_csv(root +'/' +file[WTG_number], 
                                 index_col=0,
                                 parse_dates=True,
                                 dayfirst=True)
             
+            # Rename columns
             WTG_data.rename(columns={"Desalineación Nacelle y Dirección de Viento Media 10M\n(°)": "Misalignment",
                                     "Media de Potencia Activa 10M\n(kW)": "Power",
                                     "Posición Nacelle Media 10M\n(°)":"Nacelle Orientation",
@@ -40,12 +40,21 @@ def get_data(num_datasets=25):
                                     "Ángulo Pitch Media 10M\n(°)":"Blade Pitch"},
                                     inplace=True)
             
-            # Clean data
-            # TODO Currently split between DL and ML data - can reconcile and place within this loop?
-            # DL part under clean.py
-            # ML part under ml_data.py
+            # Sort index in chronological order
+            WTG_data.sort_index()
 
-            all_WTG_data[WTG_number] = WTG_data
+            # Remove duplicates
+            WTG_data.drop_duplicates(inplace=True)
+
+            # Add missing timesteps
+            ref_date_range = pd.date_range(start=WTG_data.index.min(), end=WTG_data.index.max(), freq='10T')
+            WTG_data = WTG_data.reindex(ref_date_range)
+
+            # Remove start/end periods with high NaNs
+            WTG_data = WTG_data.loc['2019-05-05':'2021-09-30']
+
+            # Output format: Dataframe per WTG assembled in a dict("WTG_number": dataframe)
+            all_WTG_data.append(WTG_data)
 
     return all_WTG_data
 
