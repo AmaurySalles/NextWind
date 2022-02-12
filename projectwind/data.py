@@ -47,10 +47,16 @@ def get_data(num_datasets):
     parentdir = os.path.dirname(os.path.abspath("__file__"))
     rawdir = os.path.join(parentdir,"raw_data")
 
+<<<<<<< HEAD
     # Output dict
     all_WTG_data = {}
     fit_data = pd.DataFrame()
 
+=======
+    # Output dict    
+    all_WTG_data = []
+    
+>>>>>>> 9bd6de859f3475b0f9644b52acc0e4c403c97481
     # Append all csv data files to a dict("WTG_number" : dataframe)
     for root, directory, file in os.walk(rawdir):
 <<<<<<< HEAD
@@ -61,6 +67,7 @@ def get_data(num_datasets):
         for WTG_number in range (num_datasets):
             print(WTG_number+1)
 
+<<<<<<< HEAD
 >>>>>>> f0495e4f94d1883072430aa8dabe9a8ffd3140c1
             # Train/Val/Test dataset
             # Output format: Dataframe per WTG assembled in a dict("WTG_number": dataframe)
@@ -70,12 +77,23 @@ def get_data(num_datasets):
                                 dayfirst=True)
 
             data.rename(columns={"Desalineación Nacelle y Dirección de Viento Media 10M\n(°)": "Misalignment",
+=======
+            # Read file
+            WTG_data = pd.read_csv(root +'/' +file[WTG_number], 
+                                index_col=0,
+                                parse_dates=True,
+                                dayfirst=True)
+            
+            # Rename columns
+            WTG_data.rename(columns={"Desalineación Nacelle y Dirección de Viento Media 10M\n(°)": "Misalignment",
+>>>>>>> 9bd6de859f3475b0f9644b52acc0e4c403c97481
                                     "Media de Potencia Activa 10M\n(kW)": "Power",
                                     "Posición Nacelle Media 10M\n(°)":"Nacelle Orientation",
                                     "Velocidad Rotor Media 10M\n(rpm)":"Rotor Speed",
                                     "Velocidad Viento Media 10M\n(m/s)":"Wind Speed",
                                     "Ángulo Pitch Media 10M\n(°)":"Blade Pitch"},
                                     inplace=True)
+<<<<<<< HEAD
 
             all_WTG_data[WTG_number] = data
 
@@ -86,21 +104,49 @@ def get_data(num_datasets):
 
 
     return all_WTG_data, fit_data
+=======
+            
+            # Sort index in chronological order
+            WTG_data.sort_index()
 
+            # Remove duplicates
+            WTG_data.drop_duplicates(inplace=True)
 
+            # Add missing timesteps
+            ref_date_range = pd.date_range(start=WTG_data.index.min(), end=WTG_data.index.max(), freq='10T')
+            WTG_data = WTG_data.reindex(ref_date_range)
+>>>>>>> 9bd6de859f3475b0f9644b52acc0e4c403c97481
+
+            # Remove start/end periods with high NaNs
+            WTG_data = WTG_data.loc['2019-05-05':'2021-09-30']
+
+            # Output format: Dataframe per WTG assembled in a dict("WTG_number": dataframe)
+            all_WTG_data.append(WTG_data)
+
+    return all_WTG_data
+
+# To remove?
 def split_test_data(data):
     data_length = len(data[0].shape)
     train_data = [data[WTG].iloc[0:-int(data_length*0.8)] for WTG in data]
     test_data = [data[WTG].iloc[-int(data_length*0.8):] for WTG in data]
     return train_data, test_data
 
+<<<<<<< HEAD
 
+=======
+# To remove?
+>>>>>>> 9bd6de859f3475b0f9644b52acc0e4c403c97481
 def split_fit_data(fit_data):
     y_fit = fit_data['Power']
     X_fit = fit_data
     return X_fit, y_fit
 
+<<<<<<< HEAD
 
+=======
+ # To remove?   
+>>>>>>> 9bd6de859f3475b0f9644b52acc0e4c403c97481
 def concat_fit_data():
 
     # Take the parent dirname for the raw data
