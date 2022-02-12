@@ -1,3 +1,4 @@
+from operator import ge
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
@@ -5,21 +6,25 @@ import tensorflow as tf
 from itertools import chain
 
 from projectwind.data import get_data
-
+from projectwind.weather import get_weather
 
 def get_LSTM_data(num_datasets=25):
 
     # Fetch csv dataset
     data = get_data(num_datasets)
-
+    weather = get_weather()
+    print(weather)
     train_df, val_df, test_df = list(), list(), list()
+
 
     # Data pre-processing
     for WTG_data in data:
-        
+
         # Fill in na_values
         WTG_data.interpolate(axis=0, inplace=True)
-        
+        print(WTG_data)
+        # Join with weather data
+        WTG_data = pd.concat([WTG_data, weather], axis=1)
         # Feature engineering
         WTG_data = feature_engineering(WTG_data)
 
@@ -28,7 +33,7 @@ def get_LSTM_data(num_datasets=25):
         train_df.append(WTG_data[0:int(n*0.7)])
         val_df.append(WTG_data[int(n*0.7):int(n*0.9)])
         test_df.append(WTG_data[int(n*0.9):])
-       
+
     return train_df, val_df, test_df
 
 
@@ -38,19 +43,21 @@ def feature_engineering(WTG_data):
     WTG_data['Misalignment'] = WTG_data['Misalignment']* np.pi / 180 # Transform into radians
     WTG_data['Nacelle Orientation'] = WTG_data['Nacelle Orientation'] * np.pi / 180 # Transform into radians
     WTG_data['Wind_direction'] =  WTG_data['Nacelle Orientation'] - WTG_data['Misalignment']
-    
+
+
+
     # Build vectors from wind direction and wind speed
     WTG_data['Wind_X'] = WTG_data['Wind Speed'] * np.cos(WTG_data['Wind_direction'])
     WTG_data['Wind_Y'] = WTG_data['Wind Speed'] * np.sin(WTG_data['Wind_direction'])
 
-    # Build vectors for nacelle orientation    
+    # Build vectors for nacelle orientation
     WTG_data['Nacelle_X'] = np.cos(WTG_data['Nacelle Orientation'])
     WTG_data['Nacelle_Y'] = np.sin(WTG_data['Nacelle Orientation'])
 
     # Remove superseeded columns, except wind speed
     WTG_data.drop(columns=['Misalignment','Nacelle Orientation', 'Wind_direction'], inplace=True)
 
-    # Transform time into sin/cosine to represent periodicity  
+    # Transform time into sin/cosine to represent periodicity
     timestamp_s = WTG_data.index.map(pd.Timestamp.timestamp)
     day = 24*60*60
     WTG_data['Day sin'] = np.sin(timestamp_s * (2 * np.pi / day))
@@ -58,19 +65,18 @@ def feature_engineering(WTG_data):
 
     return WTG_data
 
-
 def define_window(n_steps_in, n_steps_out, train_df, val_df, test_df):
-    
+
     window = WindowGenerator(label_columns=['Power'],
-                         input_width=n_steps_in, label_width=n_steps_out, shift=n_steps_out, 
+                         input_width=n_steps_in, label_width=n_steps_out, shift=n_steps_out,
                          train_df=train_df, val_df=val_df, test_df=test_df)
 
     return window
 
 def load_datasets(n_steps_in, n_steps_out):
-    
+
     sequence_name = f"{n_steps_in // 6}-{n_steps_out // 6}"
-    
+
     X_train = np.load(f'./projectwind/data/LSTM_sequence_X_train_{sequence_name}.npy', allow_pickle=True)
     y_train = np.load(f'./projectwind/data/LSTM_sequence_y_train_{sequence_name}.npy', allow_pickle=True)
     X_val   = np.load(f'./projectwind/data/LSTM_sequence_X_val_{sequence_name}.npy', allow_pickle=True)
@@ -84,7 +90,7 @@ class WindowGenerator():
     def __init__(self, input_width, label_width, shift,
                  train_df, val_df, test_df,
                  label_columns=None):
-        
+
         # Store the raw data.
         self.train_df = train_df
         self.val_df = val_df
@@ -117,7 +123,7 @@ class WindowGenerator():
             f'Label indices: {self.label_indices}',
             f'Label column name(s): {self.label_columns}'])
 
-    
+
     def split_window(self, features):
         inputs = features[:,self.input_slice, :]
         labels = features[:,self.labels_slice, :]
@@ -131,8 +137,8 @@ class WindowGenerator():
         labels.set_shape([None, self.label_width, None])
 
         return inputs, labels
-    
-    
+
+
     def plot(self, model=None, plot_col='Power', max_subplots=3):
         inputs, labels = self.example
         plt.figure(figsize=(12, 8))
@@ -166,7 +172,7 @@ class WindowGenerator():
             plt.xlabel('Time [h]')
             plt.tight_layout()
 
-    
+
     def make_dataset(self, data):
 
         # Find sequences according to window size of X and y
@@ -180,7 +186,7 @@ class WindowGenerator():
                                                                     batch_size=32)
         # Split X and y according to window size
         WTG_sequences = WTG_sequences.map(self.split_window)
-        
+
         return WTG_sequences
 
     # Not in current use
@@ -201,7 +207,7 @@ class WindowGenerator():
                                                                         batch_size=32)
             # Split X and y according to window size
             WTG_sequences = WTG_sequences.map(self.split_window)
-            
+
             # # Transfer from tensor to numpy array to save under .NPY format
             # X_datasets.append(chain.from_iterable([X.numpy() for X, y in WTG_sequences]))
             # y_datasets.append(chain.from_iterable([y.numpy() for X, y in WTG_sequences]))
@@ -214,17 +220,17 @@ class WindowGenerator():
         array = np.array(list(chain.from_iterable(datasets)))
         # Shuffle the array to mix WTGs and sequences
         #X_array, y_array = self.shuffle_sequences(X_array, y_array)
-        
+
         return array
-    
+
     def shuffle_sequences(self, X, y, seed=42):
         np.random.seed(seed)
         np.random.shuffle(X)
         np.random.seed(seed)
         np.random.shuffle(y)
         return X, y
-    
-    
+
+
     @property
     def save_datasets(self):
         X_train, y_train = self.make_dataset(self.train_df)
