@@ -1,4 +1,3 @@
-from curses import window
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
@@ -62,6 +61,19 @@ def define_window(n_steps_in, n_steps_out, train_df, val_df, test_df):
 
     return window
 
+def load_datasets(n_steps_in, n_steps_out):
+    
+    sequence_name = f"{n_steps_in // 6}-{n_steps_out // 6}"
+    
+    X_train = np.load(f'./projectwind/data/LSTM_sequence_X_train_{sequence_name}.npy', allow_pickle=True)
+    y_train = np.load(f'./projectwind/data/LSTM_sequence_y_train_{sequence_name}.npy', allow_pickle=True)
+    X_val   = np.load(f'./projectwind/data/LSTM_sequence_X_val_{sequence_name}.npy', allow_pickle=True)
+    y_val   = np.load(f'./projectwind/data/LSTM_sequence_y_val_{sequence_name}.npy', allow_pickle=True)
+    X_test  = np.load(f'./projectwind/data/LSTM_sequence_X_test_{sequence_name}.npy', allow_pickle=True)
+    y_test  = np.load(f'./projectwind/data/LSTM_sequence_y_test_{sequence_name}.npy', allow_pickle=True)
+
+    return X_train, y_train, X_val, y_val, X_test, y_test
+
 class WindowGenerator():
     def __init__(self, input_width, label_width, shift,
                  train_df, val_df, test_df,
@@ -76,7 +88,7 @@ class WindowGenerator():
         self.label_columns = label_columns
         if label_columns is not None:
             self.label_columns_indices = {name: i for i, name in enumerate(label_columns)}
-        self.column_indices = {name: i for i, name in enumerate(train_df[0].columns)}
+        self.column_indices = {name: i for i, name in enumerate(train_df.columns)}
 
         # Work out the window parameters.
         self.input_width = input_width
@@ -150,8 +162,27 @@ class WindowGenerator():
 
     
     def make_dataset(self, data):
-        X_datasets = []
-        y_datasets = []
+
+        # Find sequences according to window size of X and y
+        data = np.array(data, dtype=np.float32)
+        WTG_sequences = tf.keras.utils.timeseries_dataset_from_array(data=data,
+                                                                    targets=None,
+                                                                    sequence_length=self.total_window_size,
+                                                                    sampling_rate=1,
+                                                                    sequence_stride=self.total_window_size,
+                                                                    shuffle=True,
+                                                                    batch_size=32)
+        # Split X and y according to window size
+        WTG_sequences = WTG_sequences.map(self.split_window)
+        
+        return WTG_sequences
+
+    # Not in current use
+    def make_dataset_vAll(self, data):
+        # X_datasets = []
+        # y_datasets = []
+
+        datasets = []
         for WTG_data in data:
                    # Find sequences according to window size of X and y
             WTG_data = np.array(WTG_data, dtype=np.float32)
@@ -165,18 +196,20 @@ class WindowGenerator():
             # Split X and y according to window size
             WTG_sequences = WTG_sequences.map(self.split_window)
             
-            # Transfer from tensor to numpy array to save under .NPY format
-            X_datasets.append(chain.from_iterable([X.numpy() for X, y in WTG_sequences]))
-            y_datasets.append(chain.from_iterable([y.numpy() for X, y in WTG_sequences]))
-            
+            # # Transfer from tensor to numpy array to save under .NPY format
+            # X_datasets.append(chain.from_iterable([X.numpy() for X, y in WTG_sequences]))
+            # y_datasets.append(chain.from_iterable([y.numpy() for X, y in WTG_sequences]))
+            # X_datasets.append([X for X, y in WTG_sequences])
+            # y_datasets.append([y for X, y in WTG_sequences])
+            datasets.append(WTG_sequences)
         # Aggregate WTGs batches into same array
-        X_array = np.array(list(chain.from_iterable(X_datasets)))
-        y_array = np.array(list(chain.from_iterable(y_datasets)))
-        
+        # X_array = np.array(list(chain.from_iterable(X_datasets)))
+        # y_array = np.array(list(chain.from_iterable(y_datasets)))
+        array = np.array(list(chain.from_iterable(datasets)))
         # Shuffle the array to mix WTGs and sequences
-        X_array, y_array = self.shuffle_sequences(X_array, y_array)
+        #X_array, y_array = self.shuffle_sequences(X_array, y_array)
         
-        return X_array, y_array
+        return array
     
     def shuffle_sequences(self, X, y, seed=42):
         np.random.seed(seed)
@@ -187,7 +220,7 @@ class WindowGenerator():
     
     
     @property
-    def make_datasets(self):
+    def save_datasets(self):
         X_train, y_train = self.make_dataset(self.train_df)
         X_val, y_val = self.make_dataset(self.val_df)
         X_test, y_test = self.make_dataset(self.test_df)
@@ -203,30 +236,16 @@ class WindowGenerator():
         return X_train, y_train, X_val, y_val, X_test, y_test
 
     @property
-    def load_datasets(self):
-        
-        sequence_name = f"{self.input_width // 6}-{self.label_width // 6}"
-        
-        X_train = np.load(f'./projectwind/data/LSTM_sequence_X_train_{sequence_name}.npy', allow_pickle=True)
-        y_train = np.load(f'./projectwind/data/LSTM_sequence_y_train_{sequence_name}.npy', allow_pickle=True)
-        X_val   = np.load(f'./projectwind/data/LSTM_sequence_X_val_{sequence_name}.npy', allow_pickle=True)
-        y_val   = np.load(f'./projectwind/data/LSTM_sequence_y_val_{sequence_name}.npy', allow_pickle=True)
-        X_test  = np.load(f'./projectwind/data/LSTM_sequence_X_test_{sequence_name}.npy', allow_pickle=True)
-        y_test  = np.load(f'./projectwind/data/LSTM_sequence_y_test_{sequence_name}.npy', allow_pickle=True)
+    def train(self):
+        return self.make_dataset(self.train_df)
 
-        return X_train, y_train, X_val, y_val, X_test, y_test
+    @property
+    def val(self):
+        return self.make_dataset(self.val_df)
 
-    # @property
-    # def train(self):
-    #     return self.make_dataset(self.train_df)
-
-    # @property
-    # def val(self):
-    #     return self.make_dataset(self.val_df)
-
-    # @property
-    # def test(self):
-    #     return self.make_dataset(self.test_df)
+    @property
+    def test(self):
+        return self.make_dataset(self.test_df)
 
     @property
     def example(self):
