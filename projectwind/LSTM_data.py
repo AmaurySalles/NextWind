@@ -1,4 +1,3 @@
-from operator import ge
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
@@ -12,8 +11,8 @@ def get_LSTM_data(num_datasets=25):
 
     # Fetch csv dataset
     data = get_data(num_datasets)
-    weather = get_weather()
-    print(weather)
+    #weather = get_weather()
+    #print(weather)
     train_df, val_df, test_df = list(), list(), list()
 
 
@@ -22,9 +21,9 @@ def get_LSTM_data(num_datasets=25):
 
         # Fill in na_values
         WTG_data.interpolate(axis=0, inplace=True)
-        print(WTG_data)
+
         # Join with weather data
-        WTG_data = pd.concat([WTG_data, weather], axis=1)
+        #WTG_data = pd.concat([WTG_data, weather], axis=1)
         # Feature engineering
         WTG_data = feature_engineering(WTG_data)
 
@@ -100,8 +99,7 @@ class WindowGenerator():
         self.label_columns = label_columns
         if label_columns is not None:
             self.label_columns_indices = {name: i for i, name in enumerate(label_columns)}
-        self.column_indices = {name: i for i, name in enumerate(train_df.columns)}
-
+        self.column_indices = {name: i for i, name in enumerate(train_df[0].columns)}
         # Work out the window parameters.
         self.input_width = input_width
         self.label_width = label_width
@@ -156,7 +154,7 @@ class WindowGenerator():
                 label_col_index = plot_col_index
 
             if label_col_index is None:
-                continue
+                label_col_index = 0
 
             plt.plot(self.label_indices, labels[n, :, label_col_index],
                         label='Labels', c='#2ca02c', marker='.')
@@ -172,31 +170,30 @@ class WindowGenerator():
             plt.xlabel('Time [h]')
             plt.tight_layout()
 
+    # Not in current use
+    # def make_dataset(self, data):
+
+    #     # Find sequences according to window size of X and y
+    #     data = np.array(data, dtype=np.float32)
+    #     WTG_sequences = tf.keras.utils.timeseries_dataset_from_array(data=data,
+    #                                                                 targets=None,
+    #                                                                 sequence_length=self.total_window_size,
+    #                                                                 sampling_rate=1,
+    #                                                                 sequence_stride=self.total_window_size,
+    #                                                                 shuffle=True,
+    #                                                                 batch_size=32)
+    #     # Split X and y according to window size
+    #     WTG_sequences = WTG_sequences.map(self.split_window)
+
+    #     return WTG_sequences
 
     def make_dataset(self, data):
+        X_datasets = []
+        y_datasets = []
 
-        # Find sequences according to window size of X and y
-        data = np.array(data, dtype=np.float32)
-        WTG_sequences = tf.keras.utils.timeseries_dataset_from_array(data=data,
-                                                                    targets=None,
-                                                                    sequence_length=self.total_window_size,
-                                                                    sampling_rate=1,
-                                                                    sequence_stride=self.total_window_size,
-                                                                    shuffle=True,
-                                                                    batch_size=32)
-        # Split X and y according to window size
-        WTG_sequences = WTG_sequences.map(self.split_window)
-
-        return WTG_sequences
-
-    # Not in current use
-    def make_dataset_vAll(self, data):
-        # X_datasets = []
-        # y_datasets = []
-
-        datasets = []
         for WTG_data in data:
-                   # Find sequences according to window size of X and y
+            
+            # Find sequences according to window size of X and y
             WTG_data = np.array(WTG_data, dtype=np.float32)
             WTG_sequences = tf.keras.utils.timeseries_dataset_from_array(data=WTG_data,
                                                                         targets=None,
@@ -207,21 +204,18 @@ class WindowGenerator():
                                                                         batch_size=32)
             # Split X and y according to window size
             WTG_sequences = WTG_sequences.map(self.split_window)
-
-            # # Transfer from tensor to numpy array to save under .NPY format
-            # X_datasets.append(chain.from_iterable([X.numpy() for X, y in WTG_sequences]))
-            # y_datasets.append(chain.from_iterable([y.numpy() for X, y in WTG_sequences]))
-            # X_datasets.append([X for X, y in WTG_sequences])
-            # y_datasets.append([y for X, y in WTG_sequences])
-            datasets.append(WTG_sequences)
+            
+            # Transfer from tensor to numpy array to save under .NPY format
+            X_datasets.append(chain.from_iterable([X.numpy() for X, y in WTG_sequences]))
+            y_datasets.append(chain.from_iterable([y.numpy() for X, y in WTG_sequences]))
+            
         # Aggregate WTGs batches into same array
-        # X_array = np.array(list(chain.from_iterable(X_datasets)))
-        # y_array = np.array(list(chain.from_iterable(y_datasets)))
-        array = np.array(list(chain.from_iterable(datasets)))
-        # Shuffle the array to mix WTGs and sequences
-        #X_array, y_array = self.shuffle_sequences(X_array, y_array)
-
-        return array
+        X_array = np.array(list(chain.from_iterable(X_datasets)))
+        y_array = np.array(list(chain.from_iterable(y_datasets)))
+        
+        X_array, y_array = self.shuffle_sequences(X_array, y_array)
+            
+        return X_array, y_array
 
     def shuffle_sequences(self, X, y, seed=42):
         np.random.seed(seed)
@@ -245,7 +239,7 @@ class WindowGenerator():
         np.save(f'./projectwind/data/LSTM_sequence_X_test_{sequence_name}.npy', np.asanyarray(X_test, dtype=object))
         np.save(f'./projectwind/data/LSTM_sequence_y_test_{sequence_name}.npy', np.asanyarray(y_test, dtype=object))
 
-        return X_train, y_train, X_val, y_val, X_test, y_test
+        return print(f"Data saved under './projectwind/data/LSTM_sequence_<dataset>_{sequence_name}.npy")
 
     @property
     def train(self):
@@ -265,7 +259,7 @@ class WindowGenerator():
         result = getattr(self, '_example', None)
         if result is None:
             # No example batch was found, so get one from the `.train` dataset
-            result = next(iter(self.train))
+            result = self.train
             # And cache it for next time
             self._example = result
         return result
