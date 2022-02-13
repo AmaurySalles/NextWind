@@ -1,18 +1,19 @@
-from tokenize import endpats
+import numpy as np
 import requests
 import datetime
 import pandas as pd
-import numpy as np
+
 
 
 def get_weather(lon=19.696598,lat=-71.219500, start_date="01/05/19", end_date ="30/09/21"):
 
     date_1 = datetime.datetime.strptime(start_date, "%d/%m/%y")
-    date_2 = date_1 + datetime.timedelta(days=29)
-    break_date = datetime.datetime.strptime(end_date, "%d/%m/%y")
+    date_2 = date_1 + datetime.timedelta(days=29, hours=23)
+    break_date = datetime.datetime.strptime(end_date, "%d/%m/%y")+datetime.timedelta(hours=23)
 
-    col = ['Fecha','weatherCode', 'tempC', 'weatherDesc', 'precipMM', 'windspeedKmph', 'winddirDegree']
-    df = pd.DataFrame(columns=col)
+    col = ['tempC', 'precipMM', 'windspeedKmph', 'winddirDegree']
+    weather = pd.DataFrame(columns=col)
+    print (weather)
 
 #Loop over all the dates to then do the GET request
     while date_2<=break_date:
@@ -22,32 +23,24 @@ def get_weather(lon=19.696598,lat=-71.219500, start_date="01/05/19", end_date ="
 
         #Get the json for a specific range of dates and for specific zone
         resp = requests.get(url).json()
-        #Loop over every day in the range
-        for day in resp['data']['weather']:
-            date = day['date']
-            #Loop over every hour
-            for hour in day['hourly']:
-                for minute in range(0,6):
-
-                    #Create a new row for each day hour
-                    #28/09/21 13:20
-                    new_row={
-                        'Fecha' : f"{ date[:4]+ '-'+date[5:7] + '-'+date[8:]} {'0'+hour['time'][0]+':'+str(minute)+'0:00' if len(hour['time'])< 4 else hour['time'][0:2]+':'+str(minute)+'0:00'}",
-                        'weatherCode' : int(hour['weatherCode']),
-                        'tempC' : int(hour['tempC']),
-                        'weatherDesc' : hour['weatherDesc'][0]['value'],
-                        'precipMM' : hour['precipMM'],
-                        'windspeedKmph' : float(hour['windspeedKmph']),
-                        'winddirDegree' : float(hour['winddirDegree'])
-                    }
+        #Create a dataframe
+        df=pd.json_normalize(resp["data"]["weather"],['hourly'], errors='ignore', meta="date")
+        #fill with 0 the hour and create the Fecha column
+        df["Fecha"] = pd.to_datetime(df["date"]+" "+df["time"].str.zfill(4))
+        #Set Fecha as index
+        df.set_index("Fecha", inplace=True)
+        #add the minutes to the DF
+        df = df.reindex(pd.date_range(start=date_1, end=date_2, freq="10min"),method='ffill')
                     #Append the data to a new dataframe
-                    df = df.append(new_row, ignore_index=True)
+        print(df)
+        weather = weather.append(df[['tempC', 'precipMM', 'windspeedKmph', 'winddirDegree']])
         date_1 = date_1 + datetime.timedelta(days=30)
         date_2 = date_2 + datetime.timedelta(days=30)
-    df.Fecha=pd.to_datetime(df.Fecha)
-    df.set_index("Fecha", inplace=True)
-    df.index= df.index- pd.DateOffset(hours=12)
-    return feature_engineering(df)
+    weather.index= weather.index- pd.DateOffset(hours=12)
+    weather[['tempC', 'precipMM', 'windspeedKmph', 'winddirDegree']] = weather[['tempC', 'precipMM', 'windspeedKmph', 'winddirDegree']].apply(pd.to_numeric, downcast="float", errors='ignore')
+    print(weather)
+    print(weather.info())
+    return feature_engineering(weather)
 
 def feature_engineering(df):
 
@@ -63,3 +56,7 @@ def feature_engineering(df):
     df.drop(columns=['windspeedKmph','winddirDegree'], inplace=True)
 
     return df
+
+if __name__=="__main__":
+    df = get_weather()
+    print(df)
