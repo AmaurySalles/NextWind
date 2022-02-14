@@ -11,7 +11,7 @@ def get_LSTM_data(num_datasets=25):
 
     # Fetch csv & weather datasets
     data = get_data(num_datasets)
-    weather = get_weather()
+    #weather = get_weather()
     
     train_df, val_df, test_df = list(), list(), list()
 
@@ -25,7 +25,7 @@ def get_LSTM_data(num_datasets=25):
         WTG_data = feature_engineering(WTG_data)
 
         # Join with weather data
-        WTG_data = pd.concat([WTG_data, weather], axis=1)
+        #WTG_data = pd.concat([WTG_data, weather], axis=1)
 
         # # Split datasets
         n = len(WTG_data)
@@ -43,15 +43,13 @@ def feature_engineering(WTG_data):
     WTG_data['Nacelle Orientation'] = WTG_data['Nacelle Orientation'] * np.pi / 180 # Transform into radians
     WTG_data['Wind_direction'] =  WTG_data['Nacelle Orientation'] - WTG_data['Misalignment']
 
-
-
-    # Build vectors from wind direction and wind speed
-    WTG_data['Wind_X'] = WTG_data['Wind Speed'] * np.cos(WTG_data['Wind_direction'])
-    WTG_data['Wind_Y'] = WTG_data['Wind Speed'] * np.sin(WTG_data['Wind_direction'])
-
     # Build vectors for nacelle orientation
     WTG_data['Nacelle_X'] = np.cos(WTG_data['Nacelle Orientation'])
     WTG_data['Nacelle_Y'] = np.sin(WTG_data['Nacelle Orientation'])
+
+    # Build vectors from wind direction and wind speed
+    WTG_data['Wind_X'] = WTG_data['Wind Speed'] * np.cos(WTG_data['Wind_direction'])
+    WTG_data['Wind_Y'] = WTG_data['Wind Speed'] * np.sin(WTG_data['Wind_direction'])  
 
     # Remove superseeded columns, except wind speed
     WTG_data.drop(columns=['Misalignment','Nacelle Orientation', 'Wind_direction'], inplace=True)
@@ -64,9 +62,9 @@ def feature_engineering(WTG_data):
 
     return WTG_data
 
-def define_window(n_steps_in, n_steps_out, train_df, val_df, test_df):
+def define_window(n_steps_in, n_steps_out, train_df, val_df, test_df, label_col_name):
 
-    window = WindowGenerator(label_columns=['Power'],
+    window = WindowGenerator(label_columns=[label_col_name],
                          input_width=n_steps_in, label_width=n_steps_out, shift=n_steps_out,
                          train_df=train_df, val_df=val_df, test_df=test_df)
 
