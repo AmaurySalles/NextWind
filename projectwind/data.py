@@ -14,7 +14,7 @@ def get_data(num_datasets=25):
     # Take the parent dirname for the raw data
     parentdir = os.path.dirname(os.path.abspath("__file__"))
     rawdir = os.path.join(parentdir,"raw_data")
-    print(rawdir)
+    # print(rawdir)
 
     # Output dict    
     all_WTG_data = []

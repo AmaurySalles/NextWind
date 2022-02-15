@@ -1,4 +1,3 @@
-from operator import ge
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
@@ -10,23 +9,25 @@ from projectwind.weather import get_weather
 
 def get_LSTM_data(num_datasets=25):
 
-    # Fetch csv dataset
+    # Fetch csv & weather datasets
     data = get_data(num_datasets)
     weather = get_weather()
-    print(weather)
+    
     train_df, val_df, test_df = list(), list(), list()
-
 
     # Data pre-processing
     for WTG_data in data:
 
         # Fill in na_values
         WTG_data.interpolate(axis=0, inplace=True)
-        print(WTG_data)
-        # Join with weather data
-        WTG_data = pd.concat([WTG_data, weather], axis=1)
+        
         # Feature engineering
         WTG_data = feature_engineering(WTG_data)
+
+        # Join with weather data
+        WTG_data = pd.concat([WTG_data, weather], axis=1)
+        # Slice off additional API data timestamps
+        WTG_data.dropna(axis=0, inplace=True)
 
         # # Split datasets
         n = len(WTG_data)
@@ -44,15 +45,13 @@ def feature_engineering(WTG_data):
     WTG_data['Nacelle Orientation'] = WTG_data['Nacelle Orientation'] * np.pi / 180 # Transform into radians
     WTG_data['Wind_direction'] =  WTG_data['Nacelle Orientation'] - WTG_data['Misalignment']
 
-
-
-    # Build vectors from wind direction and wind speed
-    WTG_data['Wind_X'] = WTG_data['Wind Speed'] * np.cos(WTG_data['Wind_direction'])
-    WTG_data['Wind_Y'] = WTG_data['Wind Speed'] * np.sin(WTG_data['Wind_direction'])
-
     # Build vectors for nacelle orientation
     WTG_data['Nacelle_X'] = np.cos(WTG_data['Nacelle Orientation'])
     WTG_data['Nacelle_Y'] = np.sin(WTG_data['Nacelle Orientation'])
+
+    # Build vectors from wind direction and wind speed
+    WTG_data['Wind_X'] = WTG_data['Wind Speed'] * np.cos(WTG_data['Wind_direction'])
+    WTG_data['Wind_Y'] = WTG_data['Wind Speed'] * np.sin(WTG_data['Wind_direction'])  
 
     # Remove superseeded columns, except wind speed
     WTG_data.drop(columns=['Misalignment','Nacelle Orientation', 'Wind_direction', 'Wind Speed'], inplace=True)
@@ -65,9 +64,9 @@ def feature_engineering(WTG_data):
 
     return WTG_data
 
-def define_window(n_steps_in, n_steps_out, train_df, val_df, test_df):
+def define_window(n_steps_in, n_steps_out, train_df, val_df, test_df, label_col_name):
 
-    window = WindowGenerator(label_columns=['Power'],
+    window = WindowGenerator(label_columns=[label_col_name],
                          input_width=n_steps_in, label_width=n_steps_out, shift=n_steps_out,
                          train_df=train_df, val_df=val_df, test_df=test_df)
 
@@ -88,8 +87,8 @@ def load_datasets(n_steps_in, n_steps_out):
 
 class WindowGenerator():
     def __init__(self, input_width, label_width, shift,
-                 train_df, val_df, test_df,
-                 label_columns=None):
+                 train_df, val_df, test_df, 
+                 forecast_columns=None, label_columns=None):
 
         # Store the raw data.
         self.train_df = train_df
@@ -100,18 +99,30 @@ class WindowGenerator():
         self.label_columns = label_columns
         if label_columns is not None:
             self.label_columns_indices = {name: i for i, name in enumerate(label_columns)}
-        self.column_indices = {name: i for i, name in enumerate(train_df.columns)}
-
+        self.column_indices = {name: i for i, name in enumerate(train_df[0].columns)}
+        
+        # Work out the forecast column indices.
+        self.forecast_columns = forecast_columns
+        if forecast_columns is not None:
+            self.forecast_columns_indices = {name: i for i, name in enumerate(forecast_columns)}
+        self.forecast_indices = {name: i for i, name in enumerate(train_df[0].columns)}
+        
         # Work out the window parameters.
         self.input_width = input_width
+        self.forecast_width = label_width
         self.label_width = label_width
         self.shift = shift
-
+        
+        # Work out window slices
         self.total_window_size = input_width + shift
-
+        # Inputs
         self.input_slice = slice(0, input_width)
         self.input_indices = np.arange(self.total_window_size)[self.input_slice]
-
+        # Forecast
+        self.forecast_start = self.total_window_size - self.forecast_width
+        self.forecast_slice = slice(self.forecast_start, None)
+        self.forecast_indices = np.arange(self.total_window_size)[self.forecast_slice]
+        # Label
         self.label_start = self.total_window_size - self.label_width
         self.labels_slice = slice(self.label_start, None)
         self.label_indices = np.arange(self.total_window_size)[self.labels_slice]
@@ -120,27 +131,96 @@ class WindowGenerator():
         return '\n'.join([
             f'Total window size: {self.total_window_size}',
             f'Input indices: {self.input_indices}',
-            f'Label indices: {self.label_indices}',
-            f'Label column name(s): {self.label_columns}'])
+            f'Forecast column name(s): {self.forecast_columns}',            
+            f'Forecast indices: {self.forecast_indices}',
+            f'Label column name(s): {self.label_columns}',
+            f'Label indices: {self.label_indices}'])
 
 
-    def split_window(self, features):
-        inputs = features[:,self.input_slice, :]
-        labels = features[:,self.labels_slice, :]
+    def split_windows(self, features):
+        inputs = features[:, self.input_slice, :]
+        forecast = features[:, self.forecast_slice, :]
+        labels = features[:, self.labels_slice, :]
+        
+        # If forecast & labels, stack window output together
+        if self.forecast_columns is not None:
+            forecast = tf.stack([forecast[:,:, self.column_indices[name]] for name in self.forecast_columns],
+                            axis=-1)
+        
         if self.label_columns is not None:
             labels = tf.stack([labels[:,:, self.column_indices[name]] for name in self.label_columns],
-                              axis=-1)
+                            axis=-1)
 
         # Slicing doesn't preserve static shape information, so set the shapes
         # manually. This way the `tf.data.Datasets` are easier to inspect.
         inputs.set_shape([None, self.input_width, None])
+        forecast.set_shape([None, self.forecast_width, None])
         labels.set_shape([None, self.label_width, None])
 
-        return inputs, labels
+        return inputs, forecast, labels
 
+    def make_dataset(self, data):
+        X_datasets = []
+        X_fc_datasets = []
+        y_datasets = []
+
+        for WTG_data in data:
+
+            # Find sequences according to window size of X and y
+            WTG_data = np.array(WTG_data, dtype=np.float32)
+            WTG_sequences = tf.keras.utils.timeseries_dataset_from_array(data=WTG_data,
+                                                                        targets=None,
+                                                                        sequence_length=self.total_window_size,
+                                                                        sampling_rate=1,
+                                                                        sequence_stride=self.total_window_size,
+                                                                        shuffle=False,
+                                                                        batch_size=32)
+            # Split X and y according to window size
+            WTG_sequences = WTG_sequences.map(self.split_windows)
+
+            # Transfer from tensor to numpy array to save under .NPY format
+            X_datasets.append(chain.from_iterable([X.numpy() for X, X_fc, y in WTG_sequences]))
+            X_fc_datasets.append(chain.from_iterable([X_fc.numpy() for X, X_fc, y in WTG_sequences]))
+            y_datasets.append(chain.from_iterable([y.numpy() for X, X_fc, y in WTG_sequences]))
+
+        # Aggregate WTGs batches into same array
+        X_array = np.array(list(chain.from_iterable(X_datasets)))
+        X_fc_array = np.array(list(chain.from_iterable(X_fc_datasets)))
+        y_array = np.array(list(chain.from_iterable(y_datasets)))
+
+        X_array, X_fc_array, y_array = self.shuffle_sequences(X_array, X_fc_array, y_array)
+
+        return X_array, X_fc_array, y_array
+    
+    
+    # Not in current use
+    # def make_dataset(self, data):
+
+    #     # Find sequences according to window size of X and y
+    #     data = np.array(data, dtype=np.float32)
+    #     WTG_sequences = tf.keras.utils.timeseries_dataset_from_array(data=data,
+    #                                                                 targets=None,
+    #                                                                 sequence_length=self.total_window_size,
+    #                                                                 sampling_rate=1,
+    #                                                                 sequence_stride=self.total_window_size,
+    #                                                                 shuffle=True,
+    #                                                                 batch_size=32)
+    #     # Split X and y according to window size
+    #     WTG_sequences = WTG_sequences.map(self.split_window)
+
+    #     return WTG_sequences
+ 
+    def shuffle_sequences(self, X, X_fc, y, seed=42):
+        np.random.seed(seed)
+        np.random.shuffle(X)
+        np.random.seed(seed)
+        np.random.shuffle(X_fc)
+        np.random.seed(seed)
+        np.random.shuffle(y)
+        return X, X_fc, y
 
     def plot(self, model=None, plot_col='Power', max_subplots=3):
-        inputs, labels = self.example
+        inputs, forecast, labels = self.example
         plt.figure(figsize=(12, 8))
         plot_col_index = self.column_indices[plot_col]
         max_n = min(max_subplots, len(inputs))
@@ -156,7 +236,7 @@ class WindowGenerator():
                 label_col_index = plot_col_index
 
             if label_col_index is None:
-                continue
+                label_col_index = 0
 
             plt.plot(self.label_indices, labels[n, :, label_col_index],
                         label='Labels', c='#2ca02c', marker='.')
@@ -172,65 +252,7 @@ class WindowGenerator():
             plt.xlabel('Time [h]')
             plt.tight_layout()
 
-
-    def make_dataset(self, data):
-
-        # Find sequences according to window size of X and y
-        data = np.array(data, dtype=np.float32)
-        WTG_sequences = tf.keras.utils.timeseries_dataset_from_array(data=data,
-                                                                    targets=None,
-                                                                    sequence_length=self.total_window_size,
-                                                                    sampling_rate=1,
-                                                                    sequence_stride=self.total_window_size,
-                                                                    shuffle=True,
-                                                                    batch_size=32)
-        # Split X and y according to window size
-        WTG_sequences = WTG_sequences.map(self.split_window)
-
-        return WTG_sequences
-
-    # Not in current use
-    def make_dataset_vAll(self, data):
-        # X_datasets = []
-        # y_datasets = []
-
-        datasets = []
-        for WTG_data in data:
-                   # Find sequences according to window size of X and y
-            WTG_data = np.array(WTG_data, dtype=np.float32)
-            WTG_sequences = tf.keras.utils.timeseries_dataset_from_array(data=WTG_data,
-                                                                        targets=None,
-                                                                        sequence_length=self.total_window_size,
-                                                                        sampling_rate=1,
-                                                                        sequence_stride=self.total_window_size,
-                                                                        shuffle=False,
-                                                                        batch_size=32)
-            # Split X and y according to window size
-            WTG_sequences = WTG_sequences.map(self.split_window)
-
-            # # Transfer from tensor to numpy array to save under .NPY format
-            # X_datasets.append(chain.from_iterable([X.numpy() for X, y in WTG_sequences]))
-            # y_datasets.append(chain.from_iterable([y.numpy() for X, y in WTG_sequences]))
-            # X_datasets.append([X for X, y in WTG_sequences])
-            # y_datasets.append([y for X, y in WTG_sequences])
-            datasets.append(WTG_sequences)
-        # Aggregate WTGs batches into same array
-        # X_array = np.array(list(chain.from_iterable(X_datasets)))
-        # y_array = np.array(list(chain.from_iterable(y_datasets)))
-        array = np.array(list(chain.from_iterable(datasets)))
-        # Shuffle the array to mix WTGs and sequences
-        #X_array, y_array = self.shuffle_sequences(X_array, y_array)
-
-        return array
-
-    def shuffle_sequences(self, X, y, seed=42):
-        np.random.seed(seed)
-        np.random.shuffle(X)
-        np.random.seed(seed)
-        np.random.shuffle(y)
-        return X, y
-
-
+   
     @property
     def save_datasets(self):
         X_train, y_train = self.make_dataset(self.train_df)
@@ -245,7 +267,7 @@ class WindowGenerator():
         np.save(f'./projectwind/data/LSTM_sequence_X_test_{sequence_name}.npy', np.asanyarray(X_test, dtype=object))
         np.save(f'./projectwind/data/LSTM_sequence_y_test_{sequence_name}.npy', np.asanyarray(y_test, dtype=object))
 
-        return X_train, y_train, X_val, y_val, X_test, y_test
+        return print(f"Data saved under './projectwind/data/LSTM_sequence_<dataset>_{sequence_name}.npy")
 
     @property
     def train(self):
@@ -265,7 +287,7 @@ class WindowGenerator():
         result = getattr(self, '_example', None)
         if result is None:
             # No example batch was found, so get one from the `.train` dataset
-            result = next(iter(self.train))
+            result = self.train
             # And cache it for next time
             self._example = result
         return result
