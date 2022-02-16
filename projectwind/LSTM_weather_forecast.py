@@ -17,7 +17,7 @@ def get_LSTM_data(num_datasets=25, freq=None):
     train_df, val_df, test_df = list(), list(), list()
     
     print('### Preparing datasets ###')
-    
+
     # Data pre-processing
     for WTG_data in data:
 
@@ -42,7 +42,7 @@ def get_LSTM_data(num_datasets=25, freq=None):
         test_df.append(WTG_data[int(n*0.9):])
 
     # Scale datasets
-    train_df, val_df, test_df = scale_data(train_df, val_df, test_df)
+    # train_df, val_df, test_df = scale_data(train_df, val_df, test_df)
 
     return train_df, val_df, test_df
 
@@ -113,24 +113,31 @@ def load_datasets(n_steps_in, n_steps_out):
 class WindowGenerator():
     def __init__(self, input_width, label_width, shift,
                  train_df, val_df, test_df, 
-                 forecast_columns=None, label_columns=None):
+                 input_columns=None, forecast_columns=None, label_columns=None):
 
         # Store the raw data.
         self.train_df = train_df
         self.val_df = val_df
         self.test_df = test_df
 
+        self.column_indices = {name: i for i, name in enumerate(train_df[0].columns)}
+
+        # Work out the input column indices.
+        self.input_columns = input_columns
+        if input_columns is not None:
+            self.input_columns_indices = {name: i for i, name in enumerate(input_columns)}
+        else:
+            self.input_columns_indices =  self.column_indices
+
         # Work out the label column indices.
         self.label_columns = label_columns
         if label_columns is not None:
             self.label_columns_indices = {name: i for i, name in enumerate(label_columns)}
-        self.column_indices = {name: i for i, name in enumerate(train_df[0].columns)}
-        
+
         # Work out the forecast column indices.
         self.forecast_columns = forecast_columns
         if forecast_columns is not None:
             self.forecast_columns_indices = {name: i for i, name in enumerate(forecast_columns)}
-        self.forecast_indices = {name: i for i, name in enumerate(train_df[0].columns)}
         
         # Work out the window parameters.
         self.input_width = input_width
@@ -155,6 +162,7 @@ class WindowGenerator():
     def __repr__(self):
         return '\n'.join([
             f'Total window size: {self.total_window_size}',
+            f'Input column name(s): {self.input_columns}', 
             f'Input indices: {self.input_indices}',
             f'Forecast column name(s): {self.forecast_columns}',            
             f'Forecast indices: {self.forecast_indices}',
@@ -167,7 +175,11 @@ class WindowGenerator():
         forecast = features[:, self.forecast_slice, :]
         labels = features[:, self.labels_slice, :]
         
-        # If forecast & labels, stack window output together
+        # If input, forecast & labels are specified, stack window output together
+        if self.input_columns is not None:
+            inputs = tf.stack([inputs[:,:, self.column_indices[name]] for name in self.input_columns],
+                            axis=-1)
+        
         if self.forecast_columns is not None:
             forecast = tf.stack([forecast[:,:, self.column_indices[name]] for name in self.forecast_columns],
                             axis=-1)
