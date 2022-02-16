@@ -39,7 +39,7 @@ def LSTM_trainer():
     return history
 
 def plot_loss(history):
-    fig, ax = plt.subplots(figsize=(13,4))
+    fig , ax = plt.subplots(figsize=(13,4))
     
     # Loss plot 
     ax.plot(history.history['loss'])

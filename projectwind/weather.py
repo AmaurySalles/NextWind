@@ -6,7 +6,7 @@ import pandas as pd
 
 
 def get_weather(lon=19.696598,lat=-71.219500, start_date="01/05/19", end_date ="30/09/21"):
-
+    print('### Fetching Forecast from API ###')
     date_1 = datetime.datetime.strptime(start_date, "%d/%m/%y")
     date_2 = date_1 + datetime.timedelta(days=29, hours=23)
     break_date = datetime.datetime.strptime(end_date, "%d/%m/%y")+datetime.timedelta(hours=23)
@@ -32,27 +32,33 @@ def get_weather(lon=19.696598,lat=-71.219500, start_date="01/05/19", end_date ="
         df = df.reindex(pd.date_range(start=date_1, end=date_2, freq="10min"),method='ffill')
                     #Append the data to a new dataframe
         
-        weather = pd.concat(objs=[weather, df[['tempC', 'precipMM', 'windspeedKmph', 'winddirDegree']]])
+        weather = pd.concat(objs=[weather, df[['windspeedKmph', 'WindGustKmph', 'winddirDegree']]])
         date_1 = date_1 + datetime.timedelta(days=30)
         date_2 = date_2 + datetime.timedelta(days=30)
     weather.index= weather.index- pd.DateOffset(hours=12)
-    weather[['tempC', 'precipMM', 'windspeedKmph', 'winddirDegree']] = weather[['tempC', 'precipMM', 'windspeedKmph', 'winddirDegree']].apply(pd.to_numeric, downcast="float", errors='ignore')
+    weather[['windspeedKmph', 'WindGustKmph', 'winddirDegree']] = weather[['windspeedKmph', 'WindGustKmph', 'winddirDegree']].apply(pd.to_numeric, downcast="float", errors='ignore')
     # print(weather)
     # print(weather.info())
+    print('### Loaded Forecast from API ###')
     return feature_engineering(weather)
 
 def feature_engineering(df):
 
-    # Find wind direction (by correcting nacelle orientation with windspeedKmph)
-    df['winddirDegree'] = df['winddirDegree']* np.pi / 180 # Transform into radians
+    df['windSpeed'] = df['windspeedKmph'] * 1000 / (60*60) # Transform into m/s
+    df['windGust'] = df['WindGustKmph'] * 1000 / (60*60) # Transform into m/s
+    df['windDirDegree'] = df['winddirDegree']* np.pi / 180 # Transform into radians
 
 
     # Build vectors from wind direction and wind speed
-    df['Wind_API_X'] = df['windspeedKmph'] * np.cos(df['winddirDegree'])
-    df['Wind_API_Y'] = df['windspeedKmph'] * np.sin(df['winddirDegree'])
+    df['Wind_API_X'] = df['windSpeed'] * np.cos(df['windDirDegree'])
+    df['Wind_API_Y'] = df['windSpeed'] * np.sin(df['windDirDegree'])
+
+    # Build vectors from wind direction and wind gust
+    df['WindGust_API_X'] = df['windGust'] * np.cos(df['windDirDegree'])
+    df['WindGust_API_Y'] = df['windGust'] * np.sin(df['windDirDegree'])
 
     # Remove superseeded columns, except wind speed
-    df.drop(columns=['windspeedKmph','winddirDegree'], inplace=True)
+    df.drop(columns=['windSpeed','windGust', 'windDirDegree'], inplace=True)
 
     return df
 

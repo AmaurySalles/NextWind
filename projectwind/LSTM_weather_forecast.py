@@ -1,20 +1,21 @@
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
+from sklearn.preprocessing import MinMaxScaler
 import tensorflow as tf
 from itertools import chain
 
 from projectwind.data import get_data
 from projectwind.weather import get_weather
 
-def get_LSTM_data(num_datasets=25):
+def get_LSTM_data(num_datasets=25, freq=None):
 
     # Fetch csv & weather datasets
     data = get_data(num_datasets)
     weather = get_weather()
     
     train_df, val_df, test_df = list(), list(), list()
-
+    
     # Data pre-processing
     for WTG_data in data:
 
@@ -29,12 +30,26 @@ def get_LSTM_data(num_datasets=25):
         # Slice off additional API data timestamps
         WTG_data.dropna(axis=0, inplace=True)
 
-        # # Split datasets
+        # Resample on hourly basis
+        if freq is not None:
+            WTG_data.resample(freq).mean()
+
+        # Split datasets
         n = len(WTG_data)
         train_df.append(WTG_data[0:int(n*0.7)])
         val_df.append(WTG_data[int(n*0.7):int(n*0.9)])
         test_df.append(WTG_data[int(n*0.9):])
 
+    # Scale datasets
+    scaling_data = pd.DataFrame(index=['min','max'], columns=train_df[0].columns, data=np.nan)
+    for WTG_data in train_df:
+        for col in WTG_data:
+            temp_min = np.min(scaling_data.loc['min', col], WTG_data[col].min())
+            temp_max = np.max(scaling_data.loc['max', col], WTG_data[col].max())
+            scaling_data.loc['min', col] = temp_min
+            scaling_data.loc['max', col] = temp_max
+    print(scaling_data)
+    
     return train_df, val_df, test_df
 
 
@@ -54,7 +69,7 @@ def feature_engineering(WTG_data):
     WTG_data['Wind_Y'] = WTG_data['Wind Speed'] * np.sin(WTG_data['Wind_direction'])  
 
     # Remove superseeded columns, except wind speed
-    WTG_data.drop(columns=['Misalignment','Nacelle Orientation', 'Wind_direction', 'Wind Speed'], inplace=True)
+    WTG_data.drop(columns=['Misalignment','Nacelle Orientation', 'Wind_direction'], inplace=True)
 
     # Transform time into sin/cosine to represent periodicity
     timestamp_s = WTG_data.index.map(pd.Timestamp.timestamp)
@@ -63,14 +78,6 @@ def feature_engineering(WTG_data):
     WTG_data['Day cos'] = np.cos(timestamp_s * (2 * np.pi / day))
 
     return WTG_data
-
-def define_window(n_steps_in, n_steps_out, train_df, val_df, test_df, label_col_name):
-
-    window = WindowGenerator(label_columns=[label_col_name],
-                         input_width=n_steps_in, label_width=n_steps_out, shift=n_steps_out,
-                         train_df=train_df, val_df=val_df, test_df=test_df)
-
-    return window
 
 def load_datasets(n_steps_in, n_steps_out):
 
@@ -242,7 +249,7 @@ class WindowGenerator():
                         label='Labels', c='#2ca02c', marker='.')
 
             if model is not None:
-                predictions = model(inputs)
+                predictions = model([inputs, forecast])
                 plt.plot(self.label_indices, predictions[n, :, label_col_index],
                             marker='X', label='Predictions', c='#ff7f0e')
 
