@@ -55,7 +55,7 @@ def get_data(num_datasets=25):
 
             # Output format: Dataframe per WTG assembled in a dict("WTG_number": dataframe)
             all_WTG_data.append(WTG_data)
-    print(f'### Loaded {num_datasets}x WTG data ###')
+    print(f'### Loaded {num_datasets}xWTG data ###')
     return all_WTG_data
 
 # To remove?

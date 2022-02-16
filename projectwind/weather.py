@@ -18,7 +18,7 @@ def get_weather(lon=19.696598,lat=-71.219500, start_date="01/05/19", end_date ="
     while date_2<=break_date:
         date_2= min(date_2, break_date)
         # print(date_1, date_2)
-        url = f"https://api.worldweatheronline.com/premium/v1/past-weather.ashx?key=32c9c3f028054024b1c160353220402&q={lon},{lat}&date={date_1.strftime('%d/%m/%Y')}&enddate={date_2.strftime('%d/%m/%Y')}&tp=1&format=json"
+        url = f"https://api.worldweatheronline.com/premium/v1/past-weather.ashx?key=d4dc0a3b75ef4e749b4150417221602&q={lon},{lat}&date={date_1.strftime('%d/%m/%Y')}&enddate={date_2.strftime('%d/%m/%Y')}&tp=1&format=json"
 
         #Get the json for a specific range of dates and for specific zone
         resp = requests.get(url).json()
