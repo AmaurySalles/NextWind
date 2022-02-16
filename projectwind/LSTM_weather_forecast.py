@@ -127,6 +127,7 @@ class WindowGenerator():
         if input_columns is not None:
             self.input_columns_indices = {name: i for i, name in enumerate(input_columns)}
         else:
+            self.input_columns = train_df[0].columns
             self.input_columns_indices =  self.column_indices
 
         # Work out the label column indices.
@@ -135,8 +136,8 @@ class WindowGenerator():
             self.label_columns_indices = {name: i for i, name in enumerate(label_columns)}
 
         # Work out the forecast column indices.
-        self.forecast_columns = forecast_columns
         if forecast_columns is not None:
+            self.forecast_columns = forecast_columns
             self.forecast_columns_indices = {name: i for i, name in enumerate(forecast_columns)}
         
         # Work out the window parameters.
@@ -171,30 +172,32 @@ class WindowGenerator():
 
 
     def split_windows(self, features):
+        
+        # Splice correct timestamps
         inputs = features[:, self.input_slice, :]
         forecast = features[:, self.forecast_slice, :]
         labels = features[:, self.labels_slice, :]
         
-        # If input, forecast & labels are specified, stack window output together
+        # If input, forecast & labels are specified, select requested columns
         if self.input_columns is not None:
             inputs = tf.stack([inputs[:,:, self.column_indices[name]] for name in self.input_columns],
                             axis=-1)
-        
-        if self.forecast_columns is not None:
-            forecast = tf.stack([forecast[:,:, self.column_indices[name]] for name in self.forecast_columns],
-                            axis=-1)
-        
+        inputs.set_shape([None, self.input_width, None])
+            
         if self.label_columns is not None:
             labels = tf.stack([labels[:,:, self.column_indices[name]] for name in self.label_columns],
                             axis=-1)
-
-        # Slicing doesn't preserve static shape information, so set the shapes
-        # manually. This way the `tf.data.Datasets` are easier to inspect.
-        inputs.set_shape([None, self.input_width, None])
-        forecast.set_shape([None, self.forecast_width, None])
         labels.set_shape([None, self.label_width, None])
 
-        return inputs, forecast, labels
+        # Forecast
+        if self.forecast_columns is None:
+            return inputs, labels
+        else:
+            forecast = features[:, self.forecast_slice, :]
+            forecast = tf.stack([forecast[:,:, self.column_indices[name]] for name in self.forecast_columns],
+                            axis=-1)
+            forecast.set_shape([None, self.forecast_width, None])
+            return inputs, forecast, labels
 
     def make_dataset(self, data):
         X_datasets = []
