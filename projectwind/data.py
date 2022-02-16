@@ -18,12 +18,12 @@ def get_data(num_datasets=25):
 
     # Output dict    
     all_WTG_data = []
-    
+    print(f'### Fetching {num_datasets}xWTG data ###')
     # Append all csv data files to a dict("WTG_number" : dataframe)
     for root, directory, file in os.walk(rawdir):
 
         for WTG_number in range (num_datasets):
-            print(WTG_number+1)
+            
 
             # Read file
             WTG_data = pd.read_csv(root +'/' +file[WTG_number], 
@@ -55,7 +55,7 @@ def get_data(num_datasets=25):
 
             # Output format: Dataframe per WTG assembled in a dict("WTG_number": dataframe)
             all_WTG_data.append(WTG_data)
-
+    print(f'### Loaded {num_datasets}x WTG data ###')
     return all_WTG_data
 
 # To remove?

@@ -16,6 +16,8 @@ def get_LSTM_data(num_datasets=25, freq=None):
     
     train_df, val_df, test_df = list(), list(), list()
     
+    print('### Preparing datasets ###')
+    
     # Data pre-processing
     for WTG_data in data:
 
@@ -30,9 +32,8 @@ def get_LSTM_data(num_datasets=25, freq=None):
         # Slice off additional API data timestamps
         WTG_data.dropna(axis=0, inplace=True)
 
-        # Resample on hourly basis
-        if freq is not None:
-            WTG_data.resample(freq).mean()
+        # Resample on hourly basis using exponential weighted moving average (ewm)
+        WTG_data = WTG_data.ewm(span=6).mean().resample('H').mean()
 
         # Split datasets
         n = len(WTG_data)
@@ -41,17 +42,34 @@ def get_LSTM_data(num_datasets=25, freq=None):
         test_df.append(WTG_data[int(n*0.9):])
 
     # Scale datasets
-    scaling_data = pd.DataFrame(index=['min','max'], columns=train_df[0].columns, data=np.nan)
-    for WTG_data in train_df:
-        for col in WTG_data:
-            temp_min = np.min(scaling_data.loc['min', col], WTG_data[col].min())
-            temp_max = np.max(scaling_data.loc['max', col], WTG_data[col].max())
-            scaling_data.loc['min', col] = temp_min
-            scaling_data.loc['max', col] = temp_max
-    print(scaling_data)
-    
+    train_df, val_df, test_df = scale_data(train_df, val_df, test_df)
+
     return train_df, val_df, test_df
 
+def scale_data(train_df, val_df, test_df):
+    
+    # Find min / max of each category across all 25 WTGs (from train set only to avoid data leakage)
+    scaling_data = pd.DataFrame(index=['min','max'], columns=train_df[0].columns, data=0)
+    for WTG_data in train_df:
+        for col in WTG_data:
+            temp_min = np.min([scaling_data.loc['min', col], WTG_data[col].min(axis=0)])
+            temp_max = np.max([scaling_data.loc['max', col], WTG_data[col].max(axis=0)])
+            scaling_data.loc['min', col] = temp_min
+            scaling_data.loc['max', col] = temp_max
+
+    # Apply scaling to all three datasets
+    pd.options.mode.chained_assignment = None
+    column_names = train_df[0].columns
+    for WTGs in range(len(train_df)):
+        for col in column_names:
+            col_min = scaling_data.loc['min',col]
+            col_max = scaling_data.loc['max',col]
+            # Scale each columns of each dataset
+            train_df[WTGs].loc[:,col] = train_df[WTGs][col].apply(lambda x: (x - col_min) / (col_max - col_min))
+            val_df[WTGs].loc[:,col] = val_df[WTGs][col].apply(lambda x: (x - col_min) / (col_max - col_min))
+            test_df[WTGs].loc[:,col] = test_df[WTGs][col].apply(lambda x: (x - col_min) / (col_max - col_min))
+    pd.options.mode.chained_assignment = 'warn'
+    return train_df, val_df, test_df
 
 def feature_engineering(WTG_data):
 
