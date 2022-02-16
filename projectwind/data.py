@@ -13,7 +13,7 @@ def get_data(num_datasets=25):
 
     # Take the parent dirname for the raw data
     parentdir = os.path.dirname(os.path.abspath("__file__"))
-    rawdir = os.path.join(parentdir,"raw_data")
+    rawdir = os.path.join(parentdir,"raw_data/WTG_data")
     # print(rawdir)
 
     # Output dict    
@@ -55,7 +55,7 @@ def get_data(num_datasets=25):
 
             # Output format: Dataframe per WTG assembled in a dict("WTG_number": dataframe)
             all_WTG_data.append(WTG_data)
-    print(f'### Loaded {num_datasets}xWTG data ###')
+            
     return all_WTG_data
 
 # To remove?

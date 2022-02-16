@@ -12,12 +12,12 @@ def get_LSTM_data(num_datasets=25, freq=None):
 
     # Fetch csv & weather datasets
     data = get_data(num_datasets)
-    weather = get_weather()
     
-    train_df, val_df, test_df = list(), list(), list()
-    
-    print('### Preparing datasets ###')
+    print('### Fetching weather API data ###')
+    weather = pd.read_csv('./raw_data/API_data/historical_weather_API_data.csv', index_col=0, parse_dates=True) 
 
+    print('### Preparing datasets ###')
+    train_df, val_df, test_df = list(), list(), list()
     # Data pre-processing
     for WTG_data in data:
 
@@ -42,7 +42,7 @@ def get_LSTM_data(num_datasets=25, freq=None):
         test_df.append(WTG_data[int(n*0.9):])
 
     # Scale datasets
-    # train_df, val_df, test_df = scale_data(train_df, val_df, test_df)
+    train_df, val_df, test_df = scale_data(train_df, val_df, test_df)
 
     return train_df, val_df, test_df
 
