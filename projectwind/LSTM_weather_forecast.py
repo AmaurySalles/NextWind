@@ -42,11 +42,27 @@ def get_LSTM_data(num_datasets=25, freq=None):
         test_df.append(WTG_data[int(n*0.9):])
 
     # Scale datasets
-    train_df, val_df, test_df = scale_data(train_df, val_df, test_df)
+    train_df, val_df, test_df = std_scale_data(train_df, val_df, test_df)
 
     return train_df, val_df, test_df
 
-def scale_data(train_df, val_df, test_df):
+def std_scale_data(train_df, val_df, test_df):
+    
+    # Apply scaling to all three datasets
+    pd.options.mode.chained_assignment = None
+    column_names = train_df[0].columns
+    for WTGs in range(len(train_df)):
+        for col in column_names:
+            col_std =   train_df[WTGs][col].std()
+            col_mean =  train_df[WTGs][col].mean()
+            # Scale each columns of each dataset
+            train_df[WTGs].loc[:,col] = train_df[WTGs][col].apply(lambda x: (x - col_mean) / col_std)
+            val_df[WTGs].loc[:,col] = val_df[WTGs][col].apply(lambda x: (x - col_mean) / col_std)
+            test_df[WTGs].loc[:,col] = test_df[WTGs][col].apply(lambda x: (x - col_mean) / col_std)
+    pd.options.mode.chained_assignment = 'warn'
+    return train_df, val_df, test_df
+
+def min_max_scale_data(train_df, val_df, test_df):
     
     # Find min / max of each category across all 25 WTGs (from train set only to avoid data leakage)
     scaling_data = pd.DataFrame(index=['min','max'], columns=train_df[0].columns, data=0)
@@ -89,11 +105,11 @@ def feature_engineering(WTG_data):
     # Remove superseeded columns, except wind speed
     WTG_data.drop(columns=['Misalignment','Nacelle Orientation', 'Wind_direction'], inplace=True)
 
-    # Transform time into sin/cosine to represent periodicity
-    timestamp_s = WTG_data.index.map(pd.Timestamp.timestamp)
-    day = 24*60*60
-    WTG_data['Day sin'] = np.sin(timestamp_s * (2 * np.pi / day))
-    WTG_data['Day cos'] = np.cos(timestamp_s * (2 * np.pi / day))
+    # # Transform time into sin/cosine to represent periodicity
+    # timestamp_s = WTG_data.index.map(pd.Timestamp.timestamp)
+    # day = 24*60*60
+    # WTG_data['Day sin'] = np.sin(timestamp_s * (2 * np.pi / day))
+    # WTG_data['Day cos'] = np.cos(timestamp_s * (2 * np.pi / day))
 
     return WTG_data
 

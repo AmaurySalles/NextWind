@@ -35,7 +35,7 @@ def get_weather(lon=19.696598,lat=-71.219500, start_date="01/05/19", end_date ="
         weather = pd.concat(objs=[weather, df[['windspeedKmph', 'WindGustKmph', 'winddirDegree']]])
         date_1 = date_1 + datetime.timedelta(days=30)
         date_2 = date_2 + datetime.timedelta(days=30)
-    weather.index= weather.index- pd.DateOffset(hours=12)
+    #weather.index= weather.index- pd.DateOffset(hours=12)
     weather[['windspeedKmph', 'WindGustKmph', 'winddirDegree']] = weather[['windspeedKmph', 'WindGustKmph', 'winddirDegree']].apply(pd.to_numeric, downcast="float", errors='ignore')
     # print(weather)
     # print(weather.info())
