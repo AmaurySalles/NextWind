@@ -136,8 +136,8 @@ class WindowGenerator():
             self.label_columns_indices = {name: i for i, name in enumerate(label_columns)}
 
         # Work out the forecast column indices.
-        if forecast_columns is not None:
-            self.forecast_columns = forecast_columns
+        self.forecast_columns = forecast_columns
+        if self.forecast_columns is not None:
             self.forecast_columns_indices = {name: i for i, name in enumerate(forecast_columns)}
         
         # Work out the window parameters.
@@ -161,15 +161,24 @@ class WindowGenerator():
         self.label_indices = np.arange(self.total_window_size)[self.labels_slice]
 
     def __repr__(self):
-        return '\n'.join([
+        
+        input_details = '\n'.join([
             f'Total window size: {self.total_window_size}',
             f'Input column name(s): {self.input_columns}', 
-            f'Input indices: {self.input_indices}',
-            f'Forecast column name(s): {self.forecast_columns}',            
-            f'Forecast indices: {self.forecast_indices}',
-            f'Label column name(s): {self.label_columns}',
+            f'Input indices: {self.input_indices}'])
+
+        label_details = '\n'.join([  
+            f'Label column name(s): {self.label_columns}', 
             f'Label indices: {self.label_indices}'])
 
+        if self.forecast_columns is not None:
+            forecast_details = '\n'.join([f'Forecast column name(s): {self.forecast_columns}',            
+                                          f'Forecast indices: {self.forecast_indices}'])
+            _repr = input_details + '\n' + forecast_details + '\n' + label_details
+        else:
+            _repr = input_details + '\n' + label_details
+        
+        return _repr
 
     def split_windows(self, features):
         
@@ -201,6 +210,37 @@ class WindowGenerator():
 
     def make_dataset(self, data):
         X_datasets = []
+        y_datasets = []
+
+        for WTG_data in data:
+
+            # Find sequences according to window size of X and y
+            WTG_data = np.array(WTG_data, dtype=np.float32)
+            WTG_sequences = tf.keras.utils.timeseries_dataset_from_array(data=WTG_data,
+                                                                        targets=None,
+                                                                        sequence_length=self.total_window_size,
+                                                                        sampling_rate=1,
+                                                                        sequence_stride=self.total_window_size,
+                                                                        shuffle=False,
+                                                                        batch_size=32)
+            # Split X and y according to window size
+            WTG_sequences = WTG_sequences.map(self.split_windows)
+
+            # Transfer from tensor to numpy array to save under .NPY format
+            X_datasets.append(chain.from_iterable([X.numpy() for X, y in WTG_sequences]))
+            y_datasets.append(chain.from_iterable([y.numpy() for X, y in WTG_sequences]))
+
+        # Aggregate WTGs batches into same array
+        X_array = np.array(list(chain.from_iterable(X_datasets)))
+        y_array = np.array(list(chain.from_iterable(y_datasets)))
+
+        X_array = self.shuffle_sequences(X_array)
+        y_array = self.shuffle_sequences(y_array)
+
+        return X_array, y_array
+
+    def make_dataset_with_forecast(self, data):
+        X_datasets = []
         X_fc_datasets = []
         y_datasets = []
 
@@ -228,7 +268,9 @@ class WindowGenerator():
         X_fc_array = np.array(list(chain.from_iterable(X_fc_datasets)))
         y_array = np.array(list(chain.from_iterable(y_datasets)))
 
-        X_array, X_fc_array, y_array = self.shuffle_sequences(X_array, X_fc_array, y_array)
+        X_array = self.shuffle_sequences(X_array)
+        X_fc_array = self.shuffle_sequences(X_fc_array)
+        y_array = self.shuffle_sequences(y_array)
 
         return X_array, X_fc_array, y_array
     
@@ -250,14 +292,10 @@ class WindowGenerator():
 
     #     return WTG_sequences
  
-    def shuffle_sequences(self, X, X_fc, y, seed=42):
+    def shuffle_sequences(self, data, seed=42):
         np.random.seed(seed)
-        np.random.shuffle(X)
-        np.random.seed(seed)
-        np.random.shuffle(X_fc)
-        np.random.seed(seed)
-        np.random.shuffle(y)
-        return X, X_fc, y
+        np.random.shuffle(data)
+        return data
 
     def plot(self, model=None, plot_col='Power', max_subplots=3):
         inputs, forecast, labels = self.example
@@ -282,9 +320,12 @@ class WindowGenerator():
                         label='Labels', c='#2ca02c', marker='.')
 
             if model is not None:
-                predictions = model([inputs, forecast])
-                plt.plot(self.label_indices, predictions[n, :, label_col_index],
-                            marker='X', label='Predictions', c='#ff7f0e')
+                if self.forecast_columns is None:
+                    predictions = model(inputs)
+                else:
+                    predictions = model([inputs, forecast])
+                    plt.plot(self.label_indices, predictions[n, :, label_col_index],
+                                marker='X', label='Predictions', c='#ff7f0e')
 
             if n == 0:
                 plt.legend()
@@ -311,15 +352,24 @@ class WindowGenerator():
 
     @property
     def train(self):
-        return self.make_dataset(self.train_df)
+        if self.forecast_columns is not None:
+            return self.make_dataset_with_forecast(self.train_df)
+        else:
+            return self.make_dataset(self.train_df)
 
     @property
     def val(self):
-        return self.make_dataset(self.val_df)
+        if self.forecast_columns is not None:
+            return self.make_dataset_with_forecast(self.val_df)
+        else:
+            return self.make_dataset(self.val_df)
 
     @property
     def test(self):
-        return self.make_dataset(self.test_df)
+        if self.forecast_columns is not None:
+            return self.make_dataset_with_forecast(self.test_df)
+        else:
+            return self.make_dataset(self.test_df)
 
     @property
     def example(self):
