@@ -8,6 +8,16 @@ from projectwind.LSTM_weather_forecast import WindowGenerator, get_LSTM_data
 
 train_df, val_df, test_df = get_LSTM_data(25)
 
+n_steps_in = 3*24   # hrs
+n_steps_out = 12   # hrs
+
+window = WindowGenerator(input_width=n_steps_in, label_width=n_steps_out, shift=n_steps_out,
+                         train_df=train_df, val_df=val_df, test_df=test_df,
+                         input_columns=['Power', 'Rotor Speed', 'Wind Speed', 'Blade Pitch', 'Nacelle_X',
+                                       'Nacelle_Y', 'Wind_X', 'Wind_Y'],
+                         forecast_columns=['Wind Speed'],
+                         label_columns=['Power'])
+
 def plot(x_hist, x_fc, y_pred, y_true, max_subplots=3):
         plot_col = 'Power'
         plt.figure(figsize=(12, 8))
@@ -57,7 +67,7 @@ def plot(x_hist, x_fc, y_pred, y_true, max_subplots=3):
             plt.xlabel('Time [h]')
             plt.tight_layout()
 
-hn_model = tf.keras.models.load_model('./checkpoint/LSTM_Forecast_Hybrid_num_3Lx16N_fc_2Lx54-18N_2x02do.h5')
+hn_model = tf.keras.models.load_model('./checkpoints/LSTM_Forecast_Model_streamlit.h5')
 
 X_train, X_fc_train, y_train =  window.train
 X_val, X_fc_val,  y_val   =  window.val
