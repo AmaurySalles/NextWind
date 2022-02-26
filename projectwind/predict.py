@@ -67,12 +67,12 @@ def plot(x_hist, x_fc, y_pred, y_true, max_subplots=3):
             plt.xlabel('Time [h]')
             plt.tight_layout()
 
-hn_model = tf.keras.models.load_model('./checkpoints/LSTM_Forecast_Model_streamlit.h5')
+hn_model = tf.keras.models.load_model('./checkpoints/Energy_model_divine-firebrand-59.h5')
 
 X_train, X_fc_train, y_train =  window.train
 X_val, X_fc_val,  y_val   =  window.val
 X_test, X_fc_test,  y_test  =  window.test
 
 y_pred = hn_model.predict([X_val, X_fc_val], batch_size=1)
-
-plot(X_val, X_fc_val, y_pred, y_val)
+print(y_pred)
+#plot(X_val, X_fc_val, y_pred, y_val)
