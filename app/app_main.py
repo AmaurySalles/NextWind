@@ -3,7 +3,7 @@ import app
 import app_turbine
 import streamlit as st
 PAGES = {
-    "DataFrame Example": app,
+    "Projectwind model": app,
     "Turbine details": app_turbine
 }
 
