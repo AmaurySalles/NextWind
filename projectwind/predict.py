@@ -6,17 +6,18 @@ import tensorflow as tf
 
 from projectwind.LSTM_weather_forecast import WindowGenerator, get_LSTM_data
 
-train_df, val_df, test_df = get_LSTM_data(25)
+def do_not_use():
+    train_df, val_df, test_df = get_LSTM_data(25)
 
-n_steps_in = 3*24   # hrs
-n_steps_out = 12   # hrs
+    n_steps_in = 3*24   # hrs
+    n_steps_out = 12   # hrs
 
-window = WindowGenerator(input_width=n_steps_in, label_width=n_steps_out, shift=n_steps_out,
-                         train_df=train_df, val_df=val_df, test_df=test_df,
-                         input_columns=['Power', 'Rotor Speed', 'Wind Speed', 'Blade Pitch', 'Nacelle_X',
-                                       'Nacelle_Y', 'Wind_X', 'Wind_Y'],
-                         forecast_columns=['Wind Speed'],
-                         label_columns=['Power'])
+    window = WindowGenerator(input_width=n_steps_in, label_width=n_steps_out, shift=n_steps_out,
+                            train_df=train_df, val_df=val_df, test_df=test_df,
+                            input_columns=['Power', 'Rotor Speed', 'Wind Speed', 'Blade Pitch', 'Nacelle_X',
+                                        'Nacelle_Y', 'Wind_X', 'Wind_Y'],
+                            forecast_columns=['Wind Speed'],
+                            label_columns=['Power'])
 
 def plot(x_hist, x_fc, y_pred, y_true, max_subplots=3):
         plot_col = 'Power'
@@ -67,12 +68,21 @@ def plot(x_hist, x_fc, y_pred, y_true, max_subplots=3):
             plt.xlabel('Time [h]')
             plt.tight_layout()
 
-hn_model = tf.keras.models.load_model('./checkpoints/Energy_model_divine-firebrand-59.h5')
 
-X_train, X_fc_train, y_train =  window.train
-X_val, X_fc_val,  y_val   =  window.val
-X_test, X_fc_test,  y_test  =  window.test
+def save_X_test():
+    X_test, X_fc_test,  y_test  =  window.test
+    np.save(f'./projectwind/data/LSTM_sequence_X_test.npy', np.asanyarray(X_test, dtype=float))
+    np.save(f'./projectwind/data/LSTM_sequence_X_fc_test.npy', np.asanyarray(X_fc_test, dtype=float))
 
-y_pred = hn_model.predict([X_val, X_fc_val], batch_size=1)
-print(y_pred)
+def load_and_predict():
+    hn_model = tf.keras.models.load_model('./checkpoints/Energy_model_divine-firebrand-59.h5')
+    X_test = np.load('./projectwind/data/Classifier_X_test.npy', allow_pickle=True)
+    X_fc_test = np.load('./projectwind/data/Classifier_X_fc_test.npy', allow_pickle=True)
+
+    y_pred = hn_model.predict([X_test, X_fc_test], batch_size=1)
+    y_pred = y_pred.round()
+    return y_pred
+
+
+
 #plot(X_val, X_fc_val, y_pred, y_val)
