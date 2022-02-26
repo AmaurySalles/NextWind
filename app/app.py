@@ -1,7 +1,7 @@
 import streamlit as st
 
 from streamlit_folium import folium_static
-
+import datetime
 import datetime
 
 import requests
@@ -9,35 +9,43 @@ import requests
 import folium
 import time
 import random
+
 #WTG_longitude = st.number_input('pickup longitude', value=18.97466035850479)
 #WTG_latitude = st.number_input('pickup latitude', value=-69.27671861610212)
-
-def pinpoint_WTGs(prediction = '0KW'):
-    WTG_longitude = 18.97466035850479
-    WTG_latitude= -69.27671861610212
-    icon_url = "40963717-vento-icona-turbine.webp"
-    coordinates = [WTG_longitude,WTG_latitude]
-    m = folium.Map(location=coordinates,zoom_start=14.5, tiles='https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-                attr='Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community')
-    for i in range(25):
-        lat = random.uniform(18.96466035850479, 18.98466035850479)
-        long = random.uniform(-69.26671861610212,-69.28671861610212)
-        coordinates = [lat,long]
-        folium.Marker(coordinates,popup=prediction,tooltip=f'WTG{i}',icon=folium.features.CustomIcon(icon_url,icon_size=(20,20))).add_to(m)
-    return m
+points = []
+for i in range(25):
+    lat = random.uniform(18.96466035850479, 18.98466035850479)
+    long = random.uniform(-69.26671861610212,-69.28671861610212)
+    coordinates = [lat,long]
+    points.append(coordinates)
 
 def pinpoint_WTGs_prediction(prediction = '0KW'):
     WTG_longitude = 18.97466035850479
     WTG_latitude= -69.27671861610212
-    icon_url = "40963717-vento-icona-turbine.webp"
+    icon_url = "wind-turbine.png"
+    icon_url_red = "wind-turbine-red.png"
+    icon_url_orange = "wind-turbine-orange.png"
+    coordinates = [WTG_longitude,WTG_latitude]
+    m = folium.Map(location=coordinates,zoom_start=14.5 ,tiles='https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+                attr='Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community')
+    for i in points:
+        if points.index(i)<19:
+            folium.Marker(i,popup=prediction,tooltip=f'WTG{points.index(i)}',icon=folium.features.CustomIcon(icon_url,icon_size=(50,50))).add_to(m)
+        elif points.index(i)<22:
+            folium.Marker(i,popup=prediction,tooltip=f'WTG{points.index(i)}',icon=folium.features.CustomIcon(icon_url_orange,icon_size=(50,50))).add_to(m)
+        else:
+            folium.Marker(i,popup=prediction,tooltip=f'WTG{points.index(i)}',icon=folium.features.CustomIcon(icon_url_red,icon_size=(50,50))).add_to(m)
+    return m
+
+def pinpoint_WTGs(prediction = '0KW'):
+    WTG_longitude = 18.97466035850479
+    WTG_latitude= -69.27671861610212
+    icon_url = "wind-turbine.png"
     coordinates = [WTG_longitude,WTG_latitude]
     m = folium.Map(location=coordinates,zoom_start=14.5, tiles='https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
                 attr='Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community')
-    for i in range(25):
-        lat = random.uniform(18.96466035850479, 18.98466035850479)
-        long = random.uniform(-69.26671861610212,-69.28671861610212)
-        coordinates = [lat,long]
-        folium.Marker(coordinates,popup=prediction,tooltip=f'WTG{i}',icon=folium.features.CustomIcon(icon_url,icon_size=(20,20))).add_to(m)
+    for i in points:
+        folium.Marker(i,tooltip=f'WTG{points.index(i)}',icon=folium.features.CustomIcon(icon_url,icon_size=(50,50))).add_to(m)
     return m
 def app():
     st.write('''
@@ -51,6 +59,9 @@ def app():
         ('None', 'Station 1', 'Station 2'))
 
     if option == 'Station 1':
+        d = st.date_input(
+        "When do you want to predict",
+         datetime.datetime(2022,2,26,18,00,00))
         button = st.button('Predict')
         if button:
             my_bar = st.progress(0)
@@ -59,12 +70,16 @@ def app():
                 time.sleep(0.01)
                 my_bar.progress(percent_complete + 1)
             st.write('Power generated for the next 12h: XXXXXXX')
+            m = pinpoint_WTGs_prediction()
+            folium_static(m)
         else:
+            m = pinpoint_WTGs()
+            folium_static(m)
             st.write('')
 
         #prediction function
-        m = pinpoint_WTGs()
-        folium_static(m)
+        #m = pinpoint_WTGs()
+        #folium_static(m)
 
     elif option=='Station 2':
         if st.button('Predict'):
