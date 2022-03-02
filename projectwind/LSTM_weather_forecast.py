@@ -12,13 +12,15 @@ def get_LSTM_data(num_datasets=25, period=None):
 
     # Fetch csv & weather datasets
     data = get_data(num_datasets)
-    
+    print(data)
     print('### Fetching weather API data ###')
+
     weather = pd.read_csv('./raw_data/API_data/Exported ERA5_SCB.csv', index_col=0, parse_dates=True, dayfirst=False) 
     weather = weather.resample('H').mean()
     
     
     # Data pre-processing
+
     print('### Preparing datasets ###')
     train_df, val_df, test_df = list(), list(), list()
     
@@ -28,7 +30,11 @@ def get_LSTM_data(num_datasets=25, period=None):
         WTG_data.interpolate(axis=0, inplace=True)
         
         # Resample on hourly basis using exponential weighted moving average (ewm)
-        WTG_data = WTG_data.ewm(span=6).mean().resample('H').mean()
+        WTG_data = WTG_data.resample('H').mean()
+
+        # Feature engineering
+        WTG_data = feature_engineering(WTG_data)
+
 
         # Join with weather data
         WTG_data = pd.concat([WTG_data, weather[['M100 [m/s]','D100 [°]']]], axis=1)
@@ -37,13 +43,7 @@ def get_LSTM_data(num_datasets=25, period=None):
 
         # Feature engineering
         WTG_data = feature_engineering(WTG_data)
-
-        # # Rolling window to smooth out curves  - creates data leakage, unless target is excluded, which does not help model
-        # if period is not None:
-        #     power = WTG_data['Power']
-        #     WTG_data = WTG_data.ewm(span=period).mean()
-        #     WTG_data['Power'] = power
-        
+       
         # Resampling to smooth out curves
         if period is not None:
             WTG_data = WTG_data.resample(period).mean()
@@ -53,14 +53,14 @@ def get_LSTM_data(num_datasets=25, period=None):
         train_df.append(WTG_data[0:int(n*0.7)])
         val_df.append(WTG_data[int(n*0.7):int(n*0.9)])
         test_df.append(WTG_data[int(n*0.9):])
-
+    
     # Scale datasets
     train_df, val_df, test_df = min_max_scale_data(train_df, val_df, test_df)
 
     return train_df, val_df, test_df
 
 def std_scale_data(train_df, val_df, test_df):
-    
+
     # Apply scaling to all three datasets
     pd.options.mode.chained_assignment = None
     column_names = train_df[0].columns
@@ -80,7 +80,7 @@ def std_scale_data(train_df, val_df, test_df):
     return train_df, val_df, test_df
 
 def min_max_scale_data(train_df, val_df, test_df):
-    
+
     # Find min / max of each category across all 25 WTGs (from train set only to avoid data leakage)
     scaling_data = pd.DataFrame(index=['min','max'], columns=train_df[0].columns, data=0)
     for WTG_data in train_df:
@@ -118,6 +118,7 @@ def feature_engineering(WTG_data):
     WTG_data['Nacelle_X'] = np.cos(WTG_data['Nacelle Orientation'])
     WTG_data['Nacelle_Y'] = np.sin(WTG_data['Nacelle Orientation'])
 
+
     # Build vectors from wind direction
     WTG_data['Wind_X'] = np.cos(WTG_data['Wind_direction']) 
     WTG_data['Wind_Y'] = np.sin(WTG_data['Wind_direction'])  
@@ -149,7 +150,7 @@ def load_datasets(n_steps_in, n_steps_out):
 
 class WindowGenerator():
     def __init__(self, input_width, label_width, shift,
-                 train_df, val_df, test_df, 
+                 train_df, val_df, test_df,
                  input_columns=None, forecast_columns=None, label_columns=None):
 
         # Store the raw data.
@@ -176,13 +177,13 @@ class WindowGenerator():
         self.forecast_columns = forecast_columns
         if self.forecast_columns is not None:
             self.forecast_columns_indices = {name: i for i, name in enumerate(forecast_columns)}
-        
+
         # Work out the window parameters.
         self.input_width = input_width
         self.forecast_width = label_width
         self.label_width = label_width
         self.shift = shift
-        
+
         # Work out window slices
         self.total_window_size = input_width + shift
         # Inputs
@@ -198,38 +199,38 @@ class WindowGenerator():
         self.label_indices = np.arange(self.total_window_size)[self.labels_slice]
 
     def __repr__(self):
-        
+
         input_details = '\n'.join([
             f'Total window size: {self.total_window_size}',
-            f'Input column name(s): {self.input_columns}', 
+            f'Input column name(s): {self.input_columns}',
             f'Input indices: {self.input_indices}'])
 
-        label_details = '\n'.join([  
-            f'Label column name(s): {self.label_columns}', 
+        label_details = '\n'.join([
+            f'Label column name(s): {self.label_columns}',
             f'Label indices: {self.label_indices}'])
 
         if self.forecast_columns is not None:
-            forecast_details = '\n'.join([f'Forecast column name(s): {self.forecast_columns}',            
+            forecast_details = '\n'.join([f'Forecast column name(s): {self.forecast_columns}',
                                           f'Forecast indices: {self.forecast_indices}'])
             _repr = input_details + '\n' + forecast_details + '\n' + label_details
         else:
             _repr = input_details + '\n' + label_details
-        
+
         return _repr
 
     def split_windows(self, features):
-        
+
         # Splice correct timestamps
         inputs = features[:, self.input_slice, :]
         forecast = features[:, self.forecast_slice, :]
         labels = features[:, self.labels_slice, :]
-        
+
         # If input, forecast & labels are specified, select requested columns
         if self.input_columns is not None:
             inputs = tf.stack([inputs[:,:, self.column_indices[name]] for name in self.input_columns],
                             axis=-1)
         inputs.set_shape([None, self.input_width, None])
-            
+
         if self.label_columns is not None:
             labels = tf.stack([labels[:,:, self.column_indices[name]] for name in self.label_columns],
                             axis=-1)
@@ -310,8 +311,8 @@ class WindowGenerator():
         # y_array = self.shuffle_sequences(y_array)
 
         return X_array, X_fc_array, y_array
-    
-    
+
+
     # Not in current use
     # def make_dataset(self, data):
 
@@ -328,7 +329,7 @@ class WindowGenerator():
     #     WTG_sequences = WTG_sequences.map(self.split_window)
 
     #     return WTG_sequences
- 
+
     def shuffle_sequences(self, data, seed=42):
         np.random.seed(seed)
         np.random.shuffle(data)
@@ -370,7 +371,7 @@ class WindowGenerator():
             plt.xlabel('Time [h]')
             plt.tight_layout()
 
-   
+
     @property
     def save_datasets(self):
         X_train, X_fc_train, y_train = self.make_dataset_with_forecast(self.train_df)
