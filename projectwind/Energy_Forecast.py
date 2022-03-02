@@ -38,16 +38,6 @@ def get_LSTM_data(num_datasets=25, period=None):
         # Feature engineering
         WTG_data = feature_engineering(WTG_data)
 
-        # # Rolling window to smooth out curves  - creates data leakage, unless target is excluded, which does not help model
-        # if period is not None:
-        #     power = WTG_data['Power']
-        #     WTG_data = WTG_data.ewm(span=period).mean()
-        #     WTG_data['Power'] = power
-        
-        # Resampling to smooth out curves
-        if period is not None:
-            WTG_data = WTG_data.resample(period).mean()
-
         # Split datasets
         n = len(WTG_data)
         train_df.append(WTG_data[0:int(n*0.7)])
@@ -280,6 +270,7 @@ class WindowGenerator():
         X_datasets = []
         X_fc_datasets = []
         y_datasets = []
+        energy_datasets = []
 
         for WTG_data in data:
 
@@ -300,10 +291,20 @@ class WindowGenerator():
             X_fc_datasets.append(chain.from_iterable([X_fc.numpy() for X, X_fc, y in WTG_sequences]))
             y_datasets.append(chain.from_iterable([y.numpy() for X, X_fc, y in WTG_sequences]))
 
+            # Add target power values into a single energy value
+            for batch in y_datasets:
+                seq_energy = []
+                for seq in batch:
+                    total = 0
+                    for i in seq:
+                        total += i[0]
+                    seq_energy.append(total)
+                energy_datasets.append(seq_energy)
+           
         # Aggregate WTGs batches into same array
         X_array = np.array(list(chain.from_iterable(X_datasets)))
         X_fc_array = np.array(list(chain.from_iterable(X_fc_datasets)))
-        y_array = np.array(list(chain.from_iterable(y_datasets)))
+        y_array = np.array(list(chain.from_iterable(energy_datasets)))
 
         # X_array = self.shuffle_sequences(X_array)
         # X_fc_array = self.shuffle_sequences(X_fc_array)
@@ -373,20 +374,17 @@ class WindowGenerator():
    
     @property
     def save_datasets(self):
-        X_train, X_fc_train, y_train = self.make_dataset_with_forecast(self.train_df)
-        X_val, X_fc_val, y_val = self.make_dataset_with_forecast(self.val_df)
-        X_test, X_fc_test, y_test = self.make_dataset_with_forecast(self.test_df)
+        X_train, y_train = self.make_dataset(self.train_df)
+        X_val, y_val = self.make_dataset(self.val_df)
+        X_test, y_test = self.make_dataset(self.test_df)
 
         sequence_name = f"{self.input_width // 6}-{self.label_width // 6}"
-        np.save(f'./projectwind/data/Classifier_X_train_{sequence_name}.npy', np.asanyarray(X_train, dtype=float))
-        np.save(f'./projectwind/data/Classifier_X_fc_train_{sequence_name}.npy', np.asanyarray(X_fc_train, dtype=float))
-        np.save(f'./projectwind/data/Classifier_y_train_{sequence_name}.npy', np.asanyarray(y_train, dtype=float))
-        np.save(f'./projectwind/data/Classifier_X_val_{sequence_name}.npy', np.asanyarray(X_val, dtype=float))
-        np.save(f'./projectwind/data/Classifier_X_fc_val_{sequence_name}.npy', np.asanyarray(X_fc_val, dtype=float))
-        np.save(f'./projectwind/data/Classifier_y_val_{sequence_name}.npy', np.asanyarray(y_val, dtype=float))
-        np.save(f'./projectwind/data/Classifier_X_test_{sequence_name}.npy', np.asanyarray(X_test, dtype=float))
-        np.save(f'./projectwind/data/Classifier_X_fc_test_{sequence_name}.npy', np.asanyarray(X_fc_test, dtype=float))
-        np.save(f'./projectwind/data/Classifier_sequence_y_test_{sequence_name}.npy', np.asanyarray(y_test, dtype=float))
+        np.save(f'./projectwind/data/LSTM_sequence_X_train_{sequence_name}.npy', np.asanyarray(X_train, dtype=object))
+        np.save(f'./projectwind/data/LSTM_sequence_y_train_{sequence_name}.npy', np.asanyarray(y_train, dtype=object))
+        np.save(f'./projectwind/data/LSTM_sequence_X_val_{sequence_name}.npy', np.asanyarray(X_val, dtype=object))
+        np.save(f'./projectwind/data/LSTM_sequence_y_val_{sequence_name}.npy', np.asanyarray(y_val, dtype=object))
+        np.save(f'./projectwind/data/LSTM_sequence_X_test_{sequence_name}.npy', np.asanyarray(X_test, dtype=object))
+        np.save(f'./projectwind/data/LSTM_sequence_y_test_{sequence_name}.npy', np.asanyarray(y_test, dtype=object))
 
         return print(f"Data saved under './projectwind/data/LSTM_sequence_<dataset>_{sequence_name}.npy")
 
