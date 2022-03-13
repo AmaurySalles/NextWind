@@ -2,6 +2,7 @@
 .coverage
 .ipynb_checkpoints
 .ipynb
+.npy
 .DS_Store
 raw_data/
 data/

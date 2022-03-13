@@ -1,25 +1,28 @@
 import pandas as pd
 from sklearn.metrics import mean_absolute_error
 
-from projectwind.clean import add_timestamps
-from projectwind.sampling import get_clean_sequences
-from projectwind.pipeline import get_pipeline
-from projectwind.data import get_data, split_fit_data, split_test_data, get_samples, get_pipeline
+from projectwind.data import get_WTG_cat_data
 
-def baseline_model() :
+def baseline_model(n_steps_out):
 
-    data, fit_data = get_data()
-    historical_power = data[0]['Power']
-    historical_power = pd.DataFrame(data=historical_power)
-    historical_power['Prediction'] = historical_power['Power'].rolling(window = 72).mean()
+    # Fetch all 25xWTG power data
+    data = get_WTG_cat_data('Power')
+    
+    print('### Calculating baseline loss ###')
 
-    baseline = historical_power.dropna()
+    # Calculate average of WTG power
+    y_true = data.mean(axis=1)
 
-    y_true = baseline.Power
-    y_pred = baseline.Prediction
+    # Baseline: prediction equates to last 6 hours rolling average
+    y_pred = y_true.rolling(window = n_steps_out).mean().shift(n_steps_out)
+    y_pred = y_pred.dropna()
+
+    #Align timestep indices
+    y_true = y_true.loc[y_pred.index[0]:y_pred.index[-1]]
 
     mae = mean_absolute_error(y_true, y_pred)
+    print('MAE =', mae.round())
+    std = y_true.std()
+    print('Target std =', std.round())
 
-    std = baseline.Power.std()
-
-    return print('mae =' ,mae) , print('Standard deviation =', std)
+    return mae, std

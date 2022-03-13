@@ -1,14 +1,12 @@
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
-from sklearn.preprocessing import MinMaxScaler
 import tensorflow as tf
 from itertools import chain
 
 from projectwind.data import get_data
-from projectwind.weather import get_weather
 
-def get_LSTM_data(num_datasets=25, period=None):
+def get_LSTM_data(num_datasets=25):
 
     # Fetch csv & weather datasets
     data = get_data(num_datasets)
@@ -27,8 +25,8 @@ def get_LSTM_data(num_datasets=25, period=None):
         # Fill in na_values
         WTG_data.interpolate(axis=0, inplace=True)
         
-        # Resample on hourly basis using exponential weighted moving average (ewm)
-        WTG_data = WTG_data.ewm(span=6).mean().resample('H').mean()
+        # Resample on hourly basis
+        WTG_data = WTG_data.resample('H').mean()
 
         # Join with weather data
         WTG_data = pd.concat([WTG_data, weather[['M100 [m/s]','D100 [°]']]], axis=1)

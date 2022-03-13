@@ -4,63 +4,112 @@ import datetime
 import pandas as pd
 
 
-
-def get_weather(lon=19.696598,lat=-71.219500, start_date="01/05/19", end_date ="30/09/21"):
+def get_world_weather_API_data(lon=19.696598,lat=-71.219500, start_date="01/05/19", end_date ="30/09/21", frequency='10T'):
+    """
+    This function fetches historical wind data from World Weather Online API
+    -------------
+    Parameters:
+    lon : longitude of the location
+    lat : latitude of the location
+    start_date: API request initial date
+    end_date: API request final date
+    frequency: Timestep frequency of the output - e.g. '1H', '10T', etc. 
+    If frequency is lower than 1hr, forward fill will be applied. 
+    If frequency is higher than 1hr, only matching timesteps will be returned 
+    (i.e. no average over the period is performed)
+    -------------
+    Returns:
+    A DataFrame with datetime index (from start_date to end_date) 
+    and wind and gust wind speeds, and wind and gust wind directions 
+    as vector coordinates, suitables for ML
+    """
+    
     print('### Fetching Forecast from API ###')
-    date_1 = datetime.datetime.strptime(start_date, "%d/%m/%y")
-    date_2 = date_1 + datetime.timedelta(days=29, hours=23)
+    
+    # Set requested dates into correct format
     break_date = datetime.datetime.strptime(end_date, "%d/%m/%y")+datetime.timedelta(hours=23)
-
+    request_start_date = datetime.datetime.strptime(start_date, "%d/%m/%y")
+    request_end_date = request_start_date + datetime.timedelta(days=29, hours=23)
+    
+    # Columns of interest from API
     col = ['windspeedKmph', 'WindGustKmph', 'winddirDegree']
     weather = pd.DataFrame(columns=col)
 
-    #Loop over all the dates to then do the GET request
-    while date_2<=break_date:
-        date_2= min(date_2, break_date)
-        # print(date_1, date_2)
-        url = f"https://api.worldweatheronline.com/premium/v1/past-weather.ashx?key=d4dc0a3b75ef4e749b4150417221602&q={lon},{lat}&date={date_1.strftime('%d/%m/%Y')}&enddate={date_2.strftime('%d/%m/%Y')}&tp=1&format=json"
-
-        #Get the json for a specific range of dates and for specific zone
-        resp = requests.get(url).json()
-        #Create a dataframe
-        df=pd.json_normalize(resp["data"]["weather"],['hourly'], errors='ignore', meta="date")
-        #fill with 0 the hour and create the Fecha column
-        df["Fecha"] = pd.to_datetime(df["date"]+" "+df["time"].str.zfill(4))
-        # Set Fecha as index
-        df.set_index("Fecha", inplace=True)
-        #add the minutes to the DF
-        df = df.reindex(pd.date_range(start=date_1, end=date_2, freq="10min"),method='ffill')
-                    #Append the data to a new dataframe
+    # Fetch in batches of 30 days, until end date is reached
+    while request_end_date <= break_date:
         
-        weather = pd.concat(objs=[weather, df[['windspeedKmph', 'WindGustKmph', 'winddirDegree']]])
-        date_1 = date_1 + datetime.timedelta(days=30)
-        date_2 = date_2 + datetime.timedelta(days=30)
-    #weather.index= weather.index- pd.DateOffset(hours=12)
-    weather[['windspeedKmph', 'WindGustKmph', 'winddirDegree']] = weather[['windspeedKmph', 'WindGustKmph', 'winddirDegree']].apply(pd.to_numeric, downcast="float", errors='ignore')
-    # print(weather)
-    # print(weather.info())
+        # Avoid fetching more data than necessary (when close to end date)
+        request_end_date= min(request_end_date, break_date)
+
+        # World Weather - Historical data API url
+        url = f"https://api.worldweatheronline.com/premium/v1/past-weather.ashx?key=d4dc0a3b75ef4e749b4150417221602&q={lon},{lat}&date={request_start_date.strftime('%d/%m/%Y')}&enddate={request_end_date.strftime('%d/%m/%Y')}&tp=1&format=json"
+
+        # Fetch API data for date range and location specified
+        resp = requests.get(url).json()
+        
+        # Convert to dataframe
+        df=pd.json_normalize(resp["data"]["weather"],['hourly'], errors='ignore', meta="date")
+        
+        # Set datetime column as index
+        df.index = pd.to_datetime(df["date"]+" "+df["time"].str.zfill(4))
+        
+        # Upsample with forward fill, if frequency request is higher resolution than 1hr
+        df = df.reindex(pd.date_range(start=request_start_date, end=request_end_date, freq=frequency),method='ffill')
+        
+        #Append the data to a new dataframe
+        weather = pd.concat(objs=[weather, df[col]])
+
+        # Update request dates to fetch next 30 days of data
+        request_start_date = request_start_date + datetime.timedelta(days=30)
+        request_end_date = request_end_date + datetime.timedelta(days=30)
+    
+    # Convert values to numeric - still needed?
+    weather[col] = weather[col].apply(pd.to_numeric, downcast="float", errors='ignore')
+    
     print('### Loaded Forecast from API ###')
+    
     return feature_engineering(weather)
 
-def feature_engineering(df):
+def get_MERRA2_data(start_date="2019-05-05", end_date="2021-09-30"):
+    """
+    This function fetches historical wind data from MERRA2 satelitte (pre-downloaded)
+    -------------
+    Parameters:
+    start_date: No data prior to 2019-05-05 - Select later start_date
+    end_date: No date after 2021-09-30 - Select earlier end_date
+    -------------
+    Returns:
+    A DataFrame with datetime index (from start_date to end_date) 
+    with MERA2 wind speeds and wind direction (pre-downloaded)
+    """
+    weather = pd.read_csv('./raw_data/API_data/Exported MERRA2_SCB.csv', index_col=0, parse_dates=True, dayfirst=False) 
+    weather = weather.resample('H').mean()
+    weather.drop(columns={'M10 [m/s]','D10 [°]','T [°C]','P [Pa]'},
+                inplace=True)
+    weather.rename(columns={'M50 [m/s]':'Wind Speed MERRA2',
+                            'D50 [°]':'Wind Direction MERRA2'},
+                    inplace=True)
+    weather = weather.loc[start_date:end_date]
+    return weather
 
-    df['windSpeed_API'] = df['windspeedKmph'] * 1000 / (60*60) # Transform into m/s
-    df['windGust_API'] = df['WindGustKmph'] * 1000 / (60*60) # Transform into m/s
-    df['windDirDegree'] = df['winddirDegree']* np.pi / 180 # Transform into radians
-
-    # Build vectors from wind direction and wind speed
-    df['Wind_API_X'] = df['windSpeed_API'] * np.cos(df['windDirDegree'])
-    df['Wind_API_Y'] = df['windSpeed_API'] * np.sin(df['windDirDegree'])
-
-    # Build vectors from wind direction and wind gust
-    df['WindGust_API_X'] = df['windGust_API'] * np.cos(df['windDirDegree'])
-    df['WindGust_API_Y'] = df['windGust_API'] * np.sin(df['windDirDegree'])
-
-    # Remove superseeded columns, except wind speed
-    df.drop(columns=['windDirDegree', 'windspeedKmph', 'WindGustKmph', 'winddirDegree'], inplace=True)
-
-    return df
-
-if __name__=="__main__":
-    df = get_weather()
-    print(df)
+def get_ERA5_data(start_date="2019-05-05", end_date="2021-09-30"):
+    """
+    This function fetches historical wind data from ERA5 satelitte (pre-downloaded)
+    -------------
+    Parameters:
+    start_date: No data prior to 2019-05-05 - Select later start_date
+    end_date: No date after 2021-09-30 - Select earlier end_date
+    -------------
+    Returns:
+    A DataFrame with datetime index (from start_date to end_date) 
+    with ERA5 wind speeds and wind direction (pre-downloaded)
+    """
+    weather = pd.read_csv('./raw_data/API_data/Exported ERA5_SCB.csv', index_col=0, parse_dates=True, dayfirst=False) 
+    weather = weather.resample('H').mean()
+    weather.drop(columns={'M10 [m/s]','D10 [°]','T [°C]','P [hPa]'},
+                inplace=True)
+    weather.rename(columns={'M100 [m/s]':'Wind Speed ERA5',
+                            'D100 [°]':'Wind Direction ERA5'},
+                    inplace=True)
+    weather = weather.loc[start_date:end_date]
+    return weather

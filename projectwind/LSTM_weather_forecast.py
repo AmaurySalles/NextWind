@@ -1,7 +1,6 @@
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
-from sklearn.preprocessing import MinMaxScaler
 import tensorflow as tf
 from itertools import chain
 
@@ -12,15 +11,13 @@ def get_LSTM_data(num_datasets=25, period=None):
 
     # Fetch csv & weather datasets
     data = get_data(num_datasets)
-    print(data)
+    
     print('### Fetching weather API data ###')
-
     weather = pd.read_csv('./raw_data/API_data/Exported ERA5_SCB.csv', index_col=0, parse_dates=True, dayfirst=False) 
     weather = weather.resample('H').mean()
     
     
     # Data pre-processing
-
     print('### Preparing datasets ###')
     train_df, val_df, test_df = list(), list(), list()
     
@@ -30,11 +27,7 @@ def get_LSTM_data(num_datasets=25, period=None):
         WTG_data.interpolate(axis=0, inplace=True)
         
         # Resample on hourly basis using exponential weighted moving average (ewm)
-        WTG_data = WTG_data.resample('H').mean()
-
-        # Feature engineering
-        WTG_data = feature_engineering(WTG_data)
-
+        WTG_data = WTG_data.ewm(span=6).mean().resample('H').mean()
 
         # Join with weather data
         WTG_data = pd.concat([WTG_data, weather[['M100 [m/s]','D100 [°]']]], axis=1)
@@ -42,7 +35,7 @@ def get_LSTM_data(num_datasets=25, period=None):
         WTG_data.dropna(axis=0, inplace=True)
 
         # Feature engineering
-        WTG_data = feature_engineering(WTG_data)
+        WTG_data = WTG_feature_engineering(WTG_data)
        
         # Resampling to smooth out curves
         if period is not None:
@@ -53,20 +46,20 @@ def get_LSTM_data(num_datasets=25, period=None):
         train_df.append(WTG_data[0:int(n*0.7)])
         val_df.append(WTG_data[int(n*0.7):int(n*0.9)])
         test_df.append(WTG_data[int(n*0.9):])
-    
+
     # Scale datasets
     train_df, val_df, test_df = min_max_scale_data(train_df, val_df, test_df)
 
     return train_df, val_df, test_df
 
 def std_scale_data(train_df, val_df, test_df):
-
+    
     # Apply scaling to all three datasets
     pd.options.mode.chained_assignment = None
     column_names = train_df[0].columns
     for WTGs in range(len(train_df)):
         for col in column_names:
-            if ('Power' in col) or ('_' in col): # _ represents the X & Y direction vectors (already between 1 and -1)
+            if ('Target' in col) or ('_' in col): # _ represents the X & Y direction vectors (already between 1 and -1)
                 print(col)
                 pass
             else:
@@ -80,7 +73,7 @@ def std_scale_data(train_df, val_df, test_df):
     return train_df, val_df, test_df
 
 def min_max_scale_data(train_df, val_df, test_df):
-
+    
     # Find min / max of each category across all 25 WTGs (from train set only to avoid data leakage)
     scaling_data = pd.DataFrame(index=['min','max'], columns=train_df[0].columns, data=0)
     for WTG_data in train_df:
@@ -107,35 +100,51 @@ def min_max_scale_data(train_df, val_df, test_df):
     pd.options.mode.chained_assignment = 'warn'
     return train_df, val_df, test_df
 
-def feature_engineering(WTG_data):
+def WTG_feature_engineering(df):
 
     # Find wind direction (by correcting nacelle orientation with misalignment)
-    WTG_data['Misalignment'] = WTG_data['Misalignment']* np.pi / 180 # Transform into radians
-    WTG_data['Nacelle Orientation'] = WTG_data['Nacelle Orientation'] * np.pi / 180 # Transform into radians
-    WTG_data['Wind_direction'] =  WTG_data['Nacelle Orientation'] - WTG_data['Misalignment']
+    df['Misalignment'] = df['Misalignment']* np.pi / 180 # Transform into radians
+    df['Nacelle Orientation'] = df['Nacelle Orientation'] * np.pi / 180 # Transform into radians
+    df['Wind_direction'] =  df['Nacelle Orientation'] - df['Misalignment']
 
     # Build vectors for nacelle orientation
-    WTG_data['Nacelle_X'] = np.cos(WTG_data['Nacelle Orientation'])
-    WTG_data['Nacelle_Y'] = np.sin(WTG_data['Nacelle Orientation'])
-
+    df['Nacelle_X'] = np.cos(df['Nacelle Orientation'])
+    df['Nacelle_Y'] = np.sin(df['Nacelle Orientation'])
 
     # Build vectors from wind direction
-    WTG_data['Wind_X'] = np.cos(WTG_data['Wind_direction']) 
-    WTG_data['Wind_Y'] = np.sin(WTG_data['Wind_direction'])  
+    df['Wind_X'] = np.cos(df['Wind_direction']) 
+    df['Wind_Y'] = np.sin(df['Wind_direction'])  
 
     # Build vectors from wind direction forecast
-    WTG_data['D100 [°]'] = WTG_data['D100 [°]'] * np.pi / 182 # Transform into radians
-    WTG_data['MERA2_X'] = np.cos(WTG_data['D100 [°]'])
-    WTG_data['MERA2_Y'] = np.sin(WTG_data['D100 [°]'])
+    df['D100 [°]'] = df['D100 [°]'] * np.pi / 182 # Transform into radians
+    df['MERA2_X'] = np.cos(df['D100 [°]'])
+    df['MERA2_Y'] = np.sin(df['D100 [°]'])
 
     # Remove superseeded columns, except wind speed
-    WTG_data.drop(columns=['Misalignment','Nacelle Orientation', 'Wind_direction', 'D100 [°]'], inplace=True)
+    df.drop(columns=['Misalignment','Nacelle Orientation', 'Wind_direction', 'D100 [°]'], inplace=True)
 
-    
+    return df
 
-    return WTG_data
+def WWO_feature_engineering(df):
 
-def load_datasets(n_steps_in, n_steps_out):
+    df['windSpeed_API'] = df['windspeedKmph'] * 1000 / (60*60) # Transform into m/s
+    df['windGust_API'] = df['WindGustKmph'] * 1000 / (60*60) # Transform into m/s
+    df['windDirDegree'] = df['winddirDegree']* np.pi / 180 # Transform into radians
+
+    # Build vectors from wind direction and wind speed
+    df['Wind_API_X'] = df['windSpeed_API'] * np.cos(df['windDirDegree'])
+    df['Wind_API_Y'] = df['windSpeed_API'] * np.sin(df['windDirDegree'])
+
+    # Build vectors from wind direction and wind gust
+    df['WindGust_API_X'] = df['windGust_API'] * np.cos(df['windDirDegree'])
+    df['WindGust_API_Y'] = df['windGust_API'] * np.sin(df['windDirDegree'])
+
+    # Remove superseeded columns, except wind speed
+    df.drop(columns=['windDirDegree', 'windspeedKmph', 'WindGustKmph', 'winddirDegree'], inplace=True)
+
+    return df
+
+def load_sequences(n_steps_in, n_steps_out):
 
     sequence_name = f"{n_steps_in // 6}-{n_steps_out // 6}"
 
@@ -150,7 +159,7 @@ def load_datasets(n_steps_in, n_steps_out):
 
 class WindowGenerator():
     def __init__(self, input_width, label_width, shift,
-                 train_df, val_df, test_df,
+                 train_df, val_df, test_df, 
                  input_columns=None, forecast_columns=None, label_columns=None):
 
         # Store the raw data.
@@ -177,13 +186,13 @@ class WindowGenerator():
         self.forecast_columns = forecast_columns
         if self.forecast_columns is not None:
             self.forecast_columns_indices = {name: i for i, name in enumerate(forecast_columns)}
-
+        
         # Work out the window parameters.
         self.input_width = input_width
         self.forecast_width = label_width
         self.label_width = label_width
         self.shift = shift
-
+        
         # Work out window slices
         self.total_window_size = input_width + shift
         # Inputs
@@ -199,38 +208,38 @@ class WindowGenerator():
         self.label_indices = np.arange(self.total_window_size)[self.labels_slice]
 
     def __repr__(self):
-
+        
         input_details = '\n'.join([
             f'Total window size: {self.total_window_size}',
-            f'Input column name(s): {self.input_columns}',
+            f'Input column name(s): {self.input_columns}', 
             f'Input indices: {self.input_indices}'])
 
-        label_details = '\n'.join([
-            f'Label column name(s): {self.label_columns}',
+        label_details = '\n'.join([  
+            f'Label column name(s): {self.label_columns}', 
             f'Label indices: {self.label_indices}'])
 
         if self.forecast_columns is not None:
-            forecast_details = '\n'.join([f'Forecast column name(s): {self.forecast_columns}',
+            forecast_details = '\n'.join([f'Forecast column name(s): {self.forecast_columns}',            
                                           f'Forecast indices: {self.forecast_indices}'])
             _repr = input_details + '\n' + forecast_details + '\n' + label_details
         else:
             _repr = input_details + '\n' + label_details
-
+        
         return _repr
 
     def split_windows(self, features):
-
+        
         # Splice correct timestamps
         inputs = features[:, self.input_slice, :]
         forecast = features[:, self.forecast_slice, :]
         labels = features[:, self.labels_slice, :]
-
+        
         # If input, forecast & labels are specified, select requested columns
         if self.input_columns is not None:
             inputs = tf.stack([inputs[:,:, self.column_indices[name]] for name in self.input_columns],
                             axis=-1)
         inputs.set_shape([None, self.input_width, None])
-
+            
         if self.label_columns is not None:
             labels = tf.stack([labels[:,:, self.column_indices[name]] for name in self.label_columns],
                             axis=-1)
@@ -246,9 +255,11 @@ class WindowGenerator():
             forecast.set_shape([None, self.forecast_width, None])
             return inputs, forecast, labels
 
-    def make_dataset(self, data):
+    def make_sequences(self, data, classification=False):
         X_datasets = []
+        X_fc_datasets = []
         y_datasets = []
+        energy_datasets = []
 
         for WTG_data in data:
 
@@ -264,20 +275,51 @@ class WindowGenerator():
             # Split X and y according to window size
             WTG_sequences = WTG_sequences.map(self.split_windows)
 
-            # Transfer from tensor to numpy array to save under .NPY format
-            X_datasets.append(chain.from_iterable([X.numpy() for X, y in WTG_sequences]))
-            y_datasets.append(chain.from_iterable([y.numpy() for X, y in WTG_sequences]))
+            if self.forecast_columns is None:
+                # Transfer from tensor to numpy array to save under .NPY format
+                X_datasets.append(chain.from_iterable([X.numpy() for X, y in WTG_sequences]))
+                y_datasets.append(chain.from_iterable([y.numpy() for X, y in WTG_sequences]))
+            else:
+                # Transfer from tensor to numpy array to save under .NPY format
+                X_datasets.append(chain.from_iterable([X.numpy() for X, X_fc, y in WTG_sequences]))
+                X_fc_datasets.append(chain.from_iterable([X_fc.numpy() for X, X_fc, y in WTG_sequences]))
+                y_datasets.append(chain.from_iterable([y.numpy() for X, X_fc, y in WTG_sequences]))
+            
+            if classification == True:
+                # Sum target power values into a single energy value
+                seq_energy = self.classify_target(y_datasets)
+                energy_datasets.append(seq_energy)
 
-        # Aggregate WTGs batches into same array
-        X_array = np.array(list(chain.from_iterable(X_datasets)))
-        y_array = np.array(list(chain.from_iterable(y_datasets)))
+        # Aggregate batches into one array (batch generator done through fit function)
+        if self.forecast_columns is None:
+            X_array = np.array(list(chain.from_iterable(X_datasets)))
+            if classification == True:
+                y_array = np.array(list(chain.from_iterable(energy_datasets)))
+            else:
+                y_array = np.array(list(chain.from_iterable(y_datasets)))
+            
+            # Shuffle sequences
+            X_array = self.shuffle_sequences(X_array)
+            y_array = self.shuffle_sequences(y_array)
 
-        X_array = self.shuffle_sequences(X_array)
-        y_array = self.shuffle_sequences(y_array)
+            return X_array, y_array
+        
+        else:
+            X_array = np.array(list(chain.from_iterable(X_datasets)))
+            X_fc_array = np.array(list(chain.from_iterable(X_fc_datasets)))
+            if classification == True:
+                y_array = np.array(list(chain.from_iterable(energy_datasets)))
+            else:
+                y_array = np.array(list(chain.from_iterable(y_datasets)))
 
-        return X_array, y_array
+            # Shuffle sequences
+            X_array = self.shuffle_sequences(X_array)
+            X_fc_array = self.shuffle_sequences(X_fc_array)
+            y_array = self.shuffle_sequences(y_array)
 
-    def make_dataset_with_forecast(self, data):
+            return X_array, X_fc_array, y_array
+
+    def make_sequences_with_forecast(self, data):
         X_datasets = []
         X_fc_datasets = []
         y_datasets = []
@@ -311,10 +353,10 @@ class WindowGenerator():
         # y_array = self.shuffle_sequences(y_array)
 
         return X_array, X_fc_array, y_array
-
-
+    
+    
     # Not in current use
-    # def make_dataset(self, data):
+    # def make_sequences(self, data):
 
     #     # Find sequences according to window size of X and y
     #     data = np.array(data, dtype=np.float32)
@@ -330,6 +372,16 @@ class WindowGenerator():
 
     #     return WTG_sequences
 
+    def classify_target(target_list):
+        for batch in target_list:
+                seq_energy = []
+                for seq in batch:
+                    total = 0
+                    for i in seq:
+                        total += i[0]
+                    seq_energy.append(total)
+        return seq_energy
+ 
     def shuffle_sequences(self, data, seed=42):
         np.random.seed(seed)
         np.random.shuffle(data)
@@ -371,46 +423,54 @@ class WindowGenerator():
             plt.xlabel('Time [h]')
             plt.tight_layout()
 
-
+   
     @property
     def save_datasets(self):
-        X_train, X_fc_train, y_train = self.make_dataset_with_forecast(self.train_df)
-        X_val, X_fc_val, y_val = self.make_dataset_with_forecast(self.val_df)
-        X_test, X_fc_test, y_test = self.make_dataset_with_forecast(self.test_df)
+        X_train, y_train = self.make_sequences(self.train_df)
+        X_val, y_val = self.make_sequences(self.val_df)
+        X_test, y_test = self.make_sequences(self.test_df)
 
         sequence_name = f"{self.input_width // 6}-{self.label_width // 6}"
-        np.save(f'./projectwind/data/Classifier_X_train_{sequence_name}.npy', np.asanyarray(X_train, dtype=float))
-        np.save(f'./projectwind/data/Classifier_X_fc_train_{sequence_name}.npy', np.asanyarray(X_fc_train, dtype=float))
-        np.save(f'./projectwind/data/Classifier_y_train_{sequence_name}.npy', np.asanyarray(y_train, dtype=float))
-        np.save(f'./projectwind/data/Classifier_X_val_{sequence_name}.npy', np.asanyarray(X_val, dtype=float))
-        np.save(f'./projectwind/data/Classifier_X_fc_val_{sequence_name}.npy', np.asanyarray(X_fc_val, dtype=float))
-        np.save(f'./projectwind/data/Classifier_y_val_{sequence_name}.npy', np.asanyarray(y_val, dtype=float))
-        np.save(f'./projectwind/data/Classifier_X_test_{sequence_name}.npy', np.asanyarray(X_test, dtype=float))
-        np.save(f'./projectwind/data/Classifier_X_fc_test_{sequence_name}.npy', np.asanyarray(X_fc_test, dtype=float))
-        np.save(f'./projectwind/data/Classifier_sequence_y_test_{sequence_name}.npy', np.asanyarray(y_test, dtype=float))
+        np.save(f'./projectwind/data/LSTM_sequence_X_train_{sequence_name}.npy', np.asanyarray(X_train, dtype=object))
+        np.save(f'./projectwind/data/LSTM_sequence_y_train_{sequence_name}.npy', np.asanyarray(y_train, dtype=object))
+        np.save(f'./projectwind/data/LSTM_sequence_X_val_{sequence_name}.npy', np.asanyarray(X_val, dtype=object))
+        np.save(f'./projectwind/data/LSTM_sequence_y_val_{sequence_name}.npy', np.asanyarray(y_val, dtype=object))
+        np.save(f'./projectwind/data/LSTM_sequence_X_test_{sequence_name}.npy', np.asanyarray(X_test, dtype=object))
+        np.save(f'./projectwind/data/LSTM_sequence_y_test_{sequence_name}.npy', np.asanyarray(y_test, dtype=object))
 
         return print(f"Data saved under './projectwind/data/LSTM_sequence_<dataset>_{sequence_name}.npy")
 
     @property
-    def train(self):
+    def train_sequences(self, classification=False, load=False):
         if self.forecast_columns is not None:
-            return self.make_dataset_with_forecast(self.train_df)
+            return self.make_sequences_with_forecast(self.train_df)
         else:
-            return self.make_dataset(self.train_df)
+            return self.make_sequences(self.train_df)
 
     @property
-    def val(self):
+    def val_sequences(self, classification=False, load=False):
         if self.forecast_columns is not None:
-            return self.make_dataset_with_forecast(self.val_df)
+            return self.make_sequences_with_forecast(self.val_df)
         else:
-            return self.make_dataset(self.val_df)
+            return self.make_sequences(self.val_df)
 
     @property
-    def test(self):
+    def test_sequences(self, classification=False, load=False):
+            return self.load_or_make_sequences(self.test_df)
+
+    def load_or_make_sequences(self, dataset, classification=False, load=False):
+        
+        if load == True:
+            if self.forecast_columns is not None:
+                return self.load_sequences_with_forecast(self.test_df, self.input_width, self.label_width)
+            else:
+                return self.make_sequences(self.test_df)
+                return self.load_sequences_with_forecast(self.window)
         if self.forecast_columns is not None:
-            return self.make_dataset_with_forecast(self.test_df)
+            return self.make_sequences_with_forecast(self.test_df)
         else:
-            return self.make_dataset(self.test_df)
+            return self.make_sequences(self.test_df)
+
 
     @property
     def example(self):
