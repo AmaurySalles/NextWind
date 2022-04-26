@@ -3,49 +3,7 @@ import pandas as pd
 import numpy as np
 import datetime as datetime
 import requests
-import matplotlib.pyplot as plt
-import tensorflow as tf
 
-
-def get_data(num_datasets=25):
-
-    # Take the parent dirname for the raw data
-    parentdir = os.path.dirname(os.path.abspath("__file__"))
-    rawdir = os.path.join(parentdir,"raw_data/WTG_data")
-
-    # Output dict    
-    windspeed_data = pd.DataFrame()
-    print(f'### Fetching {num_datasets}xWTG data ###')
-    # Append all csv data files to a dict("WTG_number" : dataframe)
-    for root, directory, file in os.walk(rawdir):
-
-        for WTG_number in range (num_datasets):
-
-            # Read file
-            WTG_data = pd.read_csv(root +'/' +file[WTG_number], 
-                                index_col=0,
-                                parse_dates=True,
-                                dayfirst=True)
-            
-            WTG_data = WTG_data.pop("Velocidad Viento Media 10M\n(m/s)")
-            
-            # Sort index in chronological order
-            WTG_data.sort_index()
-
-            # Remove duplicates
-            WTG_data.drop_duplicates(inplace=True)
-
-            # Add missing timesteps
-            ref_date_range = pd.date_range(start=WTG_data.index.min(), end=WTG_data.index.max(), freq='10T')
-            WTG_data = WTG_data.reindex(ref_date_range)
-
-            # Remove start/end periods with high NaNs
-            WTG_data = WTG_data.loc['2019-05-05':'2021-09-30']
-
-            # Output format: Dataframe per WTG assembled in a dict("WTG_number": dataframe)
-            windspeed_data[WTG_number] = WTG_data
-            
-    return windspeed_data
 
 
 def get_weather(lon=19.696598,lat=-71.219500, start_date="01/05/19", end_date ="30/09/21"):

@@ -1,7 +1,7 @@
 import pandas as pd
-import numpy as np
-from data import get_data
-from pipeline import get_pipeline
+
+from projectwind.data import get_data
+from projectwind.pipeline import get_pipeline
 
 
 # 2 variables with the start and end of the data set
@@ -27,15 +27,11 @@ def add_timestamps(data):
         results[file] = new_df
     return results
 
-#get the pipeline
-def pipeline():
-    return get_pipeline()
-
 # This function gets the data and the pipeline, to then fit the data
 def trainer():
     data =data_ml()
     data= add_timestamps(data)
-    pipe =pipeline()
+    pipe =get_pipeline()
     ref_date_range = pd.date_range(start=start_data, end=end_data,freq='10T')
     for key, df in data.items():
         # Fit the date and set the index

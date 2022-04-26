@@ -14,31 +14,46 @@ from projectwind.predict import load_and_predict
 
 #WTG_longitude = st.number_input('pickup longitude', value=18.97466035850479)
 #WTG_latitude = st.number_input('pickup latitude', value=-69.27671861610212)
-points = []
-for i in range(25):
-    lat = random.uniform(18.95466035850479, 18.99466035850479)
-    long = random.uniform(-69.25671861610212,-69.29671861610212)
-    coordinates = [lat,long]
-    points.append(coordinates)
+
+def randomise_turbine_loc():
+    points = []
+    for i in range(25):
+        lat = random.uniform(18.95, 18.99)
+        long = random.uniform(-69.25,-69.29)
+        coordinates = [lat,long]
+        points.append(coordinates)
+    return points
 
 def pinpoint_WTGs_prediction():
+    
+    # Load predictions
     predictions = load_and_predict()
     predictions_25 = predictions[0:25]
-    WTG_longitude = 18.97466035850479
-    WTG_latitude= -69.27671861610212
-    icon_url = "app/wind-turbine.png"
-    icon_url_red = "app/wind-turbine-red.png"
-    icon_url_orange = "app/wind-turbine-orange.png"
+    
+    # Load WTG locations
+    locations = randomise_turbine_loc()
+
+    # Site location
+    WTG_longitude = 18.9746
+    WTG_latitude= -69.2767
+
+    # Generate map
     coordinates = [WTG_longitude,WTG_latitude]
     m = folium.Map(location=coordinates,zoom_start=13.5 ,tiles='https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
                 attr='Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community')
-    for i in points:
-        if predictions_25[points.index(i)][0]==2:
-            folium.Marker(i,popup="High",tooltip=f'WTG{points.index(i)}',icon=folium.features.CustomIcon(icon_url,icon_size=(50,50))).add_to(m)
-        elif predictions_25[points.index(i)][0]==1:
-            folium.Marker(i,popup="Medium",tooltip=f'WTG{points.index(i)}',icon=folium.features.CustomIcon(icon_url_orange,icon_size=(50,50))).add_to(m)
+  
+    # Generate turbine icons
+    icon_url = "app/wind-turbine.png"
+    icon_url_red = "app/wind-turbine-red.png"
+    icon_url_orange = "app/wind-turbine-orange.png"
+    for i in locations:
+        if predictions_25[locations.index(i)][0]==2:
+            folium.Marker(i,popup="High",tooltip=f'WTG{locations.index(i)}',icon=folium.features.CustomIcon(icon_url,icon_size=(50,50))).add_to(m)
+        elif predictions_25[locations.index(i)][0]==1:
+            folium.Marker(i,popup="Medium",tooltip=f'WTG{locations.index(i)}',icon=folium.features.CustomIcon(icon_url_orange,icon_size=(50,50))).add_to(m)
         else:
-            folium.Marker(i,popup="Low",tooltip=f'WTG{points.index(i)}',icon=folium.features.CustomIcon(icon_url_red,icon_size=(50,50))).add_to(m)
+            folium.Marker(i,popup="Low",tooltip=f'WTG{locations.index(i)}',icon=folium.features.CustomIcon(icon_url_red,icon_size=(50,50))).add_to(m)
+        
     return m
 
 def pinpoint_WTGs(prediction = '0KW'):
@@ -51,6 +66,7 @@ def pinpoint_WTGs(prediction = '0KW'):
     for i in points:
         folium.Marker(i,tooltip=f'WTG{points.index(i)}',icon=folium.features.CustomIcon(icon_url,icon_size=(50,50))).add_to(m)
     return m
+
 def app():
     st.write('''
     # Projectwind model
