@@ -1,4 +1,3 @@
-from locale import ERA
 import numpy as np
 import pandas as pd
 import tensorflow as tf
@@ -6,7 +5,7 @@ from itertools import chain
 
 from projectwind.data import get_WTG_data, get_WWO_API_data, get_MERRA2_data, get_ERA5_data
 
-def make_datasets(num_datasets=25, forecast_data='MERRA2',frequency=None):
+def make_datasets(num_datasets=25, forecast_data='MERRA2', frequency=None):
     """
     Fetches all data from a specified number of WTGs, alongside one of the forecast data (to be specified).
     Then runs through pre-processing (feature engineering & scaling) of data
