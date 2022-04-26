@@ -3,6 +3,10 @@ import pandas as pd
 import datetime as datetime
 import requests
 
+# Period with low # NaNs, following data analysis
+START_DATE = '2019-05-05'
+END_DATE = '2021-09-30'
+
 def get_WTG_data(num_datasets=25):
     """
     Fetches all data from a specified number of WTGs.
@@ -32,16 +36,7 @@ def get_WTG_data(num_datasets=25):
                                 index_col=0,
                                 parse_dates=True,
                                 dayfirst=True)
-            
-            # Rename columns
-            WTG_data.rename(columns={"Desalineación Nacelle y Dirección de Viento Media 10M\n(°)": "Misalignment",
-                                    "Media de Potencia Activa 10M\n(kW)": "Power",
-                                    "Posición Nacelle Media 10M\n(°)":"Nacelle Orientation",
-                                    "Velocidad Rotor Media 10M\n(rpm)":"Rotor Speed",
-                                    "Velocidad Viento Media 10M\n(m/s)":"Wind Speed",
-                                    "Ángulo Pitch Media 10M\n(°)":"Blade Pitch"},
-                                    inplace=True)
-            
+                       
             # Sort index in chronological order
             WTG_data.sort_index()
 
@@ -98,16 +93,8 @@ def get_WTG_cat_data(category, num_datasets=25):
                                 index_col=0,
                                 parse_dates=True,
                                 dayfirst=True)
-            # Rename columns
-            WTG_data.rename(columns={"Desalineación Nacelle y Dirección de Viento Media 10M\n(°)": "Misalignment",
-                                    "Media de Potencia Activa 10M\n(kW)": "Power",
-                                    "Posición Nacelle Media 10M\n(°)":"Nacelle Orientation",
-                                    "Velocidad Rotor Media 10M\n(rpm)":"Rotor Speed",
-                                    "Velocidad Viento Media 10M\n(m/s)":"Wind Speed",
-                                    "Ángulo Pitch Media 10M\n(°)":"Blade Pitch"},
-                                    inplace=True)
             
-            # Select categorical data (if pre-feature engineering)
+            # Select categorical data requested
             if category in WTG_data.columns:
                 WTG_data = WTG_data.pop(category)
             
@@ -121,8 +108,8 @@ def get_WTG_cat_data(category, num_datasets=25):
             ref_date_range = pd.date_range(start=WTG_data.index.min(), end=WTG_data.index.max(), freq='10T')
             WTG_data = WTG_data.reindex(ref_date_range)
 
-            # Remove start/end periods with high NaNs
-            WTG_data = WTG_data.loc['2019-05-05':'2021-09-30']
+            # Remove start/end periods with high NaNs (added following data analysis)
+            WTG_data = WTG_data.loc[START_DATE:END_DATE]
 
             # Fill in na_values
             WTG_data.interpolate(axis=0, inplace=True)
@@ -135,7 +122,7 @@ def get_WTG_cat_data(category, num_datasets=25):
             
     return category_data
 
-def get_WWO_API_data(lon=19.696,lat=-71.219, start_date="2019-05-05", end_date="2021-09-30", frequency='1H'):
+def get_WWO_API_data(lon=19.696,lat=-71.219, start_date=START_DATE, end_date=END_DATE, frequency='1H'):
     """
     This function fetches historical wind data from World Weather Online API
     -------------
@@ -204,7 +191,7 @@ def get_WWO_API_data(lon=19.696,lat=-71.219, start_date="2019-05-05", end_date="
     
     return weather
 
-def get_MERRA2_data(start_date="2019-05-05", end_date="2021-09-30"):
+def get_MERRA2_data(start_date=START_DATE, end_date=END_DATE):
     """
     This function fetches historical wind data from MERRA2 satelitte (pre-downloaded)
     -------------
@@ -229,7 +216,7 @@ def get_MERRA2_data(start_date="2019-05-05", end_date="2021-09-30"):
     weather = weather.loc[start_date:end_date]
     return weather
 
-def get_ERA5_data(start_date="2019-05-05", end_date="2021-09-30"):
+def get_ERA5_data(start_date=START_DATE, end_date=END_DATE):
     """
     This function fetches historical wind data from ERA5 satelitte (pre-downloaded)
     -------------
