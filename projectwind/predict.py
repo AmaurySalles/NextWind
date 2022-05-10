@@ -4,7 +4,7 @@ from numpy import load
 import matplotlib.pyplot as plt
 import tensorflow as tf
 
-from projectwind.LSTM_weather_forecast import WindowGenerator, get_LSTM_data
+from projectwind.ss.LSTM_weather_forecast import WindowGenerator, get_LSTM_data
 
 def do_not_use():
     train_df, val_df, test_df = get_LSTM_data(25)
@@ -19,7 +19,12 @@ def do_not_use():
                             forecast_columns=['Wind Speed'],
                             label_columns=['Power'])
 
-def plot(x_hist, x_fc, y_pred, y_true, max_subplots=3):
+def plot(x_hist, x_fc, y_pred, y_true, max_subplots=3, window=None):
+        # try:
+        #     plot_col_index = window.column_indices[plot_col]
+        #     input_col = window.input_indices[plot_col]
+
+        
         plot_col = 'Power'
         plt.figure(figsize=(12, 8))
         plot_col_index = window.column_indices[plot_col]
@@ -30,7 +35,7 @@ def plot(x_hist, x_fc, y_pred, y_true, max_subplots=3):
             plt.ylabel(f'{plot_col} [normed]')
 
             # Historical inputs
-            plt.plot(window.input_indices, x_hist[i, :, plot_col_index],
+            plt.plot(window.input_indices[plot_col], x_hist[i, :, plot_col_index],
                      label='Inputs', marker='.', zorder=-10)
 
 

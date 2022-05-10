@@ -7,7 +7,7 @@ from numpy import load
 
 from projectwind.data import get_samples
 from projectwind.pipeline import get_pipeline
-from projectwind.LSTM_model import get_LSTM_model
+from projectwind.ss.LSTM_model import get_LSTM_model
 
 def trainer():
 

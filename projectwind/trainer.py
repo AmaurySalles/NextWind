@@ -8,8 +8,8 @@ from numpy import load
 # Loss graphs
 import matplotlib.pyplot as plt
 
-from projectwind.LSTM_preproc import init_LSTM_data, load_LSTM_data
-from projectwind.LSTM_model import init_LSTM_model
+from projectwind.ss.LSTM_preproc import init_LSTM_data, load_LSTM_data
+from projectwind.ss.LSTM_model import init_LSTM_model
 
 from tensorflow.keras.callbacks import EarlyStopping
 

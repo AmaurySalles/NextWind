@@ -5,7 +5,6 @@ import tensorflow as tf
 from itertools import chain
 
 from projectwind.data import get_data
-from projectwind.weather import get_weather
 
 def get_LSTM_data(num_datasets=25, period=None):
 
