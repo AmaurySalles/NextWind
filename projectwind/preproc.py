@@ -1,7 +1,10 @@
+from typing import Type
 import numpy as np
 import pandas as pd
 import tensorflow as tf
 from itertools import chain
+import matplotlib.pyplot as plt
+
 
 from projectwind.data import get_WTG_data, get_WWO_API_data, get_MERRA2_data, get_ERA5_data
 
@@ -59,6 +62,7 @@ def make_datasets(num_datasets=25, forecast_data='MERRA2', frequency=None):
 
         # Split datasets - taking last few months of each WTG into val & test sets
         n = len(WTG_data)
+
         train_df.append(WTG_data[0:int(n*0.7)])
         val_df.append(WTG_data[int(n*0.7):int(n*0.9)])
         test_df.append(WTG_data[int(n*0.9):])
@@ -205,7 +209,16 @@ def MERRA2_ERA5_feature_engineering(df):
 class SequenceGenerator():
     """
     Class used to generate sequences according to time window and columns specified.
-    Firstly create the window, then create the train, validation and test sequences.
+    
+    Has an optional forecasting window of similar size to the target/label (i.e. label_width).
+
+    Can change the target to a classification rather than regression problem by switching 'classification' to True.
+    This will sum the target over the label_width & fit it into 3 bins (low, medium, high) arranged in quartiles 
+    TODO: Currently quartiles are hard-coded for the default 'Power' target.
+
+    Creates sequences from a dataset provided, unless pre-saved '.npy' sequences are available (i.e. window of identical size had previously been created)    
+    To force overwriting saved sequences.npy with new dataset (e.g. if changing data and/or features while keeping same window size) , switch 'load' parameter to False
+    
     ------------
     Parameters:
     input_width: 'int' 
@@ -220,6 +233,10 @@ class SequenceGenerator():
     datasets: 'dict' 
             Dictionnary with keys `train`, `val` & `test`, each containing
             a lists of DataFrames (one per WTG loaded)
+    
+    load: 'bool'
+            To force overwriting saved sequences.npy with new dataset, switch 'load' parameter to False
+            Default: True
 
     classifications: 'bool'
                     If changed to True, target will be summed over the label_width and 
@@ -238,15 +255,26 @@ class SequenceGenerator():
                     Specified column names to use as label. 
                     Default: `Power'.
     -------------
-    Returns:
-    Window of specified input.
-    Allows retrieval of sequences through the class variables `train`, `val`, `test` 
+    Returns: Object 'window' of specified inputs sizes, containing tf.data.Dataset for train, val and test sequences.
+    Allows retrieval of tf.data.Dataset sequences through the class variables `train`, `val`, `test` (e.g. window.train) 
     """
     
     def __init__(self, input_width, label_width, shift,
-                 datasets=None, classification=False,
+                 datasets=None, load=True, classification=False,
                  input_columns=None, forecast_columns=None, label_columns=['Power']):
 
+        ### Dataset ###
+        self.datasets = datasets
+        self.load = load
+        self.classification = classification
+        
+        ### Sequence variables (output) ###
+        self.train_seq = None
+        self.val_seq = None
+        self.test_seq = None
+        self.example_seq = None
+
+        
         ### Work out sequence window parameters ###
         # Given parameters
         self.classification = classification
@@ -273,12 +301,12 @@ class SequenceGenerator():
         ### Work out which features belong in each categories (input/forecast/label) ###
         # If data example has not been specified, use default complete dataset parameters 
         # Else workout all features from the dataset
-        if datasets is None:
+        if self.datasets is None:
             self.columns = self.input_columns = ['Power', 'Rotor Speed', 'Wind Speed', 'Blade Pitch', 
                                   'Nacelle_X', 'Nacelle_Y', 'Wind_X', 'Wind_Y', 
                                   'Forecast_wind_speed', 'Forecast_X','Forecast_Y']  
         else:
-            self.columns = datasets['train'][0].columns
+            self.columns = self.datasets['train'][0].columns
         self.column_indices = {name: i for i, name in enumerate(self.columns)}       
 
         # If input colums have been specified, find the input column indices. 
@@ -304,8 +332,7 @@ class SequenceGenerator():
         print('### Window details ### \n',repr(self), '\n')
 
         ## Initialise sequences
-        if datasets is not None:
-            self.train, self.val, self.test = self.get_sequences(datasets)
+        self.get_sequences(load, datasets)
 
     def __repr__(self):
         
@@ -327,26 +354,45 @@ class SequenceGenerator():
         
         return _repr
 
-    def get_sequences(self, datasets=None):
+    def get_sequences(self, load=True, datasets=None):
         # If not providing a dataset (train/val/test), try to load it from memory
         # Else, update train/val/test with dataset provided
-        try:
-            return self.load_sequences(datasets.keys())
-        except FileNotFoundError:
-            if datasets is not None:
-                for set, data in datasets.items():
-                    print(f'### Generating {set} sequences ###')
-                    sequences = self.generate_sequences(data)
-                    self.save_sequences(sequences, set)
-                    if set == 'train':
-                        self.train = sequences
-                    elif set == 'val':
-                        self.val = sequences
-                    else:
-                        self.test= sequences
-                return self.train, self.val, self.test
-            else:
-                return print("Could not find any sequences to load - Provide dataset to generate sequences.")
+        if load is True:
+            try:
+                return self.load_sequences()
+            except FileNotFoundError:
+                pass
+        
+        if datasets is not None:
+            # Add/replace with new dataset
+            # self.datasets = datasets
+            
+            for set, data in datasets.items():
+                
+                print(f'### Generating {set} sequences ###')
+                sequences = self.generate_sequences(data)
+                
+                # Save sequences for quicker loading speeds
+                self.save_sequences(sequences, set)
+                
+                # Transform sequences into tensorflow Dataset for optimal loading
+                # TODO: Below only works without forecast (X_fc) array
+                # if self.forecast_columns is None:
+                #     tf_sequences = tf.data.Dataset.from_tensor_slices((sequences['X'], sequences['y']))
+                # else:
+                #     tf_sequences = tf.data.Dataset.from_tensor_slices((sequences['X'], sequences['X_fc'], sequences['y']))
+                
+                # Sort according to set
+                if set == 'train':
+                    self.train_seq = sequences
+                elif set == 'val':
+                    self.val_seq = sequences
+                else:
+                    self.test_seq = sequences
+            
+            return self.train_seq, self.val_seq, self.test_seq
+        else:
+            return print("Could not find any sequences to load - Provide dataset to generate sequences.")
 
     def generate_sequences(self, data):
 
@@ -454,7 +500,7 @@ class SequenceGenerator():
         if self.classification is True:
             sequence_name = 'Class_'
         else:
-            sequence_name = 'Linear_'
+            sequence_name = 'Regr_'
         sequence_name += f"{self.input_width}in_{self.label_width}out"
 
         # Save sequences
@@ -463,11 +509,11 @@ class SequenceGenerator():
         if self.forecast_columns is not None:
             np.save(f'./projectwind/data/Sequences_{sequence_name}_X_fc_{dataset_name}.npy', np.asanyarray(sequences['X_fc'], dtype=float))
 
-        return print(f"### {dataset_name.capitalize()} sequences saved under './projectwind/data/Sequences__{sequence_name}_<X/X_fc/y>_{dataset_name}.npy")
+        return print(f"{dataset_name.capitalize()} sequences saved under './projectwind/data/Sequences__{sequence_name}_<X/X_fc/y>_{dataset_name}.npy")
 
-    def load_sequences(self, dataset_names):
+    def load_sequences(self):
         
-        for name in dataset_names:
+        for name in ['train','val','test']:
             
             sequences = dict()
             
@@ -475,7 +521,7 @@ class SequenceGenerator():
             if self.classification is True:
                 sequence_name = 'Class_'
             else:
-                sequence_name = 'Linear_'
+                sequence_name = 'Regr_'
             sequence_name += f"{self.input_width}in_{self.label_width}out"
     
             # Load sequences
@@ -484,16 +530,133 @@ class SequenceGenerator():
             if self.forecast_columns is not None:
                 sequences['X_fc'] = np.load(f'./projectwind/data/Sequences_{sequence_name}_X_fc_{name}.npy', allow_pickle=True)
             
-            print(f'### {name.capitalize()} {sequence_name} sequences loaded ###')
+            # Transform sequences into tensorflow Dataset for optimal loading
+            # TODO: Below only works without forecast (X_fc) array
+            # if self.forecast_columns is None:
+            #     tf_sequences = tf.data.Dataset.from_tensor_slices((sequences['X'], sequences['y']))
+            # else:
+            #     tf_sequences = tf.data.Dataset.from_tensor_slices((sequences['X'], sequences['X_fc'], sequences['y']))
+
+            print(f'### {name.capitalize()} {sequence_name} sequences loaded ###')         
 
             # Update self
             if name == 'train':
-                self.train = sequences
+                self.train_seq = sequences
             elif name == 'val':
-                self.val = sequences
+                self.val_seq = sequences
             else:
-                self.test= sequences
+                self.test_seq= sequences
 
-        return self.train, self.val, self.test
+        return self.train_seq, self.val_seq, self.test_seq
 
+    @property
+    def train(self):
+        if self.train_seq is None:
+            try:
+                self.train_seq = self.get_sequences()[0]
+            except TypeError:
+                pass
+        return self.train_seq
 
+    @property
+    def val(self):
+        if self.val_seq is None:
+            try:
+                self.val_seq = self.get_sequences()[1]
+            except TypeError:
+                pass
+        return self.val_seq
+
+    @property
+    def test(self):
+        if self.test_seq is None:
+            try:
+                self.test_seq = self.get_sequences()[2]
+            except TypeError:
+                pass
+        return self.test_seq
+
+    @property
+    def example(self):
+        """Get and cache an example val batch for plotting"""
+        try:
+            if self.example_seq is None:
+                self.example_seq=dict()
+                # Select 3 random sequences from val set
+                i = np.random.randint(0,len(self.val_seq['X']),size=3)
+                self.example_seq['X'] = self.val_seq['X'][i]
+                self.example_seq['y'] = self.val_seq['y'][i]
+                try:
+                    self.example_seq['X_fc'] = self.val_seq['X_fc'][i]
+                except KeyError:
+                    pass
+            return self.example_seq
+        except TypeError:
+            return print("Could not find any sequences to load - Provide dataset to generate sequences.")
+        
+    def plot(self, model=None, dataset=None, plot_col='Power'):
+        """
+        Graphically represent the historical target (part of inputs), target and predictions for validation dataset 3 examples
+        Feed a specific model to get its predictions, with specified input data & data, else it will fetch example (random) val set data
+        ---------
+        Parameters:
+        model: 'Object'
+                Class object of the trained model to use & predict from
+        data: 'Dict'
+                Dict containing inputs ['X'] and label / target ['y']
+                If none given, data from window.example / (random) val set data will be used
+        plot_col: 'str'
+                Name of the label column, required if not passing any dataset
+        ---------
+        Returns:
+        A graph showing inputs, target and prediction of the specified model 
+        """
+        # Select data
+        if dataset is None:
+            inputs = self.example['X']
+            labels = self.example['y']
+        else:
+            inputs = dataset['X']
+            labels = dataset['y']
+
+        # Figure out label index 
+        plot_col_index = self.column_indices[plot_col]
+        
+        # Plots 
+        plt.figure(figsize=(12, 8))
+        for n in range(3):
+            # Increase subplot number
+            plt.subplot(3, 1, n+1)
+
+            # Plot historical target (part of inputs)
+            plt.plot(self.input_indices, inputs[n, :, plot_col_index],
+                    label='Inputs', marker='.', zorder=-10)
+
+            # Find label / target
+            if self.label_columns:
+                label_col_index = self.label_columns_indices.get(plot_col, None)
+            else:
+                label_col_index = plot_col_index
+
+            if label_col_index is None:
+                continue
+
+            # Plot label / target
+            plt.plot(self.label_indices, labels[n, :, label_col_index],
+                        label='Labels', c='#2ca02c', marker='.')
+
+            # Find predictions
+            if model is not None:
+                predictions = model(inputs)
+
+                # Plot predictions
+                plt.plot(self.label_indices, predictions[0, :, label_col_index],
+                            marker='X', label='Predictions', c='#ff7f0e')
+
+            # Legend, axis labels & others
+            if n == 0:
+                plt.legend()
+            
+            plt.ylabel(f'{plot_col} [normed]')
+            plt.xlabel('Time [h]')
+            plt.tight_layout()
