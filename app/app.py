@@ -10,7 +10,7 @@ import folium
 import time
 import random
 
-from projectwind.predict import load_and_predict
+from nextwind.predict import load_and_predict
 
 #WTG_longitude = st.number_input('pickup longitude', value=18.97466035850479)
 #WTG_latitude = st.number_input('pickup latitude', value=-69.27671861610212)

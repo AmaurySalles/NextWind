@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import tensorflow as tf
 from itertools import chain
 
-from projectwind.data import get_data
+from nextwind.data import get_data
 
 def get_LSTM_data(num_datasets=25):
 
@@ -335,6 +335,7 @@ class WindowGenerator():
 
     def plot(self, model=None, plot_col='Power', max_subplots=3):
         inputs, forecast, labels = self.example
+        
         plt.figure(figsize=(12, 8))
         plot_col_index = self.column_indices[plot_col]
         max_n = min(max_subplots, len(inputs))
