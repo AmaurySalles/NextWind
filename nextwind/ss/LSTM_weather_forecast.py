@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import tensorflow as tf
 from itertools import chain
 
-from projectwind.data import get_data
+from nextwind.data import get_data
 
 def get_LSTM_data(num_datasets=25, period=None):
 

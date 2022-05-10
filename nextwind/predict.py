@@ -4,7 +4,7 @@ from numpy import load
 import matplotlib.pyplot as plt
 import tensorflow as tf
 
-from projectwind.ss.LSTM_weather_forecast import WindowGenerator, get_LSTM_data
+from nextwind.ss.LSTM_weather_forecast import WindowGenerator, get_LSTM_data
 
 def do_not_use():
     train_df, val_df, test_df = get_LSTM_data(25)

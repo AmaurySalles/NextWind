@@ -5,8 +5,8 @@ import matplotlib.pyplot as plt
 import tensorflow as tf
 from itertools import chain
 
-from projectwind.data import get_data
-from projectwind.weather import get_weather
+from nextwind.data import get_data
+from nextwind.weather import get_weather
 
 def get_LSTM_data(num_datasets=25):
 

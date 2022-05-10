@@ -507,9 +507,9 @@ class SequenceGenerator():
         np.save(f'./nextwind/data/Sequences_{sequence_name}_X_{dataset_name}.npy', np.asanyarray(sequences['X'], dtype=float))
         np.save(f'./nextwind/data/Sequences_{sequence_name}_y_{dataset_name}.npy', np.asanyarray(sequences['y'], dtype=float))
         if self.forecast_columns is not None:
-            np.save(f'./projectwind/data/Sequences_{sequence_name}_X_fc_{dataset_name}.npy', np.asanyarray(sequences['X_fc'], dtype=float))
+            np.save(f'./nextwind/data/Sequences_{sequence_name}_X_fc_{dataset_name}.npy', np.asanyarray(sequences['X_fc'], dtype=float))
 
-        return print(f"{dataset_name.capitalize()} sequences saved under './projectwind/data/Sequences__{sequence_name}_<X/X_fc/y>_{dataset_name}.npy")
+        return print(f"{dataset_name.capitalize()} sequences saved under './nextwind/data/Sequences__{sequence_name}_<X/X_fc/y>_{dataset_name}.npy")
 
     def load_sequences(self):
         
@@ -525,10 +525,10 @@ class SequenceGenerator():
             sequence_name += f"{self.input_width}in_{self.label_width}out"
     
             # Load sequences
-            sequences['X'] = np.load(f'./projectwind/data/Sequences_{sequence_name}_X_{name}.npy', allow_pickle=True)
-            sequences['y'] = np.load(f'./projectwind/data/Sequences_{sequence_name}_y_{name}.npy', allow_pickle=True)
+            sequences['X'] = np.load(f'./nextwind/data/Sequences_{sequence_name}_X_{name}.npy', allow_pickle=True)
+            sequences['y'] = np.load(f'./nextwind/data/Sequences_{sequence_name}_y_{name}.npy', allow_pickle=True)
             if self.forecast_columns is not None:
-                sequences['X_fc'] = np.load(f'./projectwind/data/Sequences_{sequence_name}_X_fc_{name}.npy', allow_pickle=True)
+                sequences['X_fc'] = np.load(f'./nextwind/data/Sequences_{sequence_name}_X_fc_{name}.npy', allow_pickle=True)
             
             # Transform sequences into tensorflow Dataset for optimal loading
             # TODO: Below only works without forecast (X_fc) array

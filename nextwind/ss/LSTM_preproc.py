@@ -2,8 +2,8 @@ from cgi import test
 import pandas as pd
 import numpy as np
 
-from projectwind.data import get_data
-from projectwind.clean import clean_timesteps
+from nextwind.data import get_data
+from nextwind.clean import clean_timesteps
 # LSTM Preprocessing steps:
 
 # Impute missing values (mean)
