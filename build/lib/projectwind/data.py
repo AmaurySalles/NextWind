@@ -4,7 +4,7 @@ import os
 
 from projectwind.clean import add_timestamps
 from projectwind.sampling import get_clean_sequences
-from projectwind.pipeline import get_pipeline
+from nextwind.pipeline import get_pipeline
 
 def get_samples(model_type='DL', sample_size=10_000):
     

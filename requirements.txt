@@ -10,7 +10,7 @@ pandas
 scikit-learn
 tensorflow==2.8.0
 matplotlib
-
+folium
 
 # tests/linter
 black
