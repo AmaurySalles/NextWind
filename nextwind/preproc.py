@@ -6,7 +6,7 @@ from itertools import chain
 import matplotlib.pyplot as plt
 
 
-from projectwind.data import get_WTG_data, get_WWO_API_data, get_MERRA2_data, get_ERA5_data
+from nextwind.data import get_WTG_data, get_WWO_API_data, get_MERRA2_data, get_ERA5_data
 
 def make_datasets(num_datasets=25, forecast_data='MERRA2', frequency=None):
     """
@@ -504,8 +504,8 @@ class SequenceGenerator():
         sequence_name += f"{self.input_width}in_{self.label_width}out"
 
         # Save sequences
-        np.save(f'./projectwind/data/Sequences_{sequence_name}_X_{dataset_name}.npy', np.asanyarray(sequences['X'], dtype=float))
-        np.save(f'./projectwind/data/Sequences_{sequence_name}_y_{dataset_name}.npy', np.asanyarray(sequences['y'], dtype=float))
+        np.save(f'./nextwind/data/Sequences_{sequence_name}_X_{dataset_name}.npy', np.asanyarray(sequences['X'], dtype=float))
+        np.save(f'./nextwind/data/Sequences_{sequence_name}_y_{dataset_name}.npy', np.asanyarray(sequences['y'], dtype=float))
         if self.forecast_columns is not None:
             np.save(f'./projectwind/data/Sequences_{sequence_name}_X_fc_{dataset_name}.npy', np.asanyarray(sequences['X_fc'], dtype=float))
 
