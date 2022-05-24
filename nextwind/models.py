@@ -2,8 +2,7 @@ import tensorflow as tf
 
 class Baseline_model(tf.keras.Model):
     """
-    Baseline model is the average of the input timesteps (repeated over width of the target).
-    This is done by calculating a simple mean over the input historical target.
+    Baseline model is the mean of the input historical target, repeated over width of the target window.
     ------------
     Returns:
     Predictions of the baseline model
@@ -14,81 +13,213 @@ class Baseline_model(tf.keras.Model):
         self.label_indices = window.label_columns_indices[window.label_columns[0]]
 
     def call(self, inputs):
-        inputs = inputs[:, :, self.label_indices]
-        input_mean = tf.math.reduce_mean(inputs)
-        prediction = tf.repeat(input_mean,self.n_steps_out)
-        prediction = prediction[None, :, tf.newaxis]
-        return prediction
+        # Select historical target column values, but keep shape (batch, time, feature)
+        x = tf.expand_dims(inputs[:, :, self.label_indices], axis=-1)
+        
+        # Calculate the mean of historical target 
+        x_mean = tf.math.reduce_mean(x, axis=1, keepdims=True)
+        
+        # Repeat mean across output timesteps
+        predictions = tf.tile(x_mean[:,:,:], [1, self.n_steps_out, 1])
+        return predictions
+
+
+def lstm_regressor_model(window):
+    # Performance model
+    input_perf = tf.keras.layers.Input(shape=window.train['X'].shape[1:])
+    x_seq = tf.keras.layers.LSTM(64, return_sequences=True, dropout=0.2)(input_perf)
+    x_seq = tf.keras.layers.LSTM(64, return_sequences=True, dropout=0.2)(x_seq)
+    x_perf = tf.keras.layers.LSTM(64, return_sequences=False, dropout=0.2)(x_seq)
+    
+    # Weather forecast model
+    input_fc = tf.keras.layers.Input(shape=window.train['X_fc'].shape[1:])
+    x_fc_seq = tf.keras.layers.LSTM(64, return_sequences=True, dropout=0.2)(input_fc)
+    x_fc_seq = tf.keras.layers.LSTM(64, return_sequences=True, dropout=0.2)(x_fc_seq)
+    x_fc = tf.keras.layers.LSTM(64, return_sequences=False, dropout=0.2)(x_fc_seq)
+    
+    # Combined model
+    combined = tf.keras.layers.concatenate([x_perf, x_fc], axis=1)
+    x = tf.keras.layers.Dense(128, activation='relu')(combined)
+    x = tf.keras.layers.Dense(64, activation='relu')(x)
+    outputs = tf.keras.layers.Dense(window.train['y'].shape[1], activation="relu")(x)
+    
+    # Reshape (batch, sequences, features)
+    outputs = tf.keras.layers.Reshape(window.train['y'].shape[1:])(outputs)
+    
+    model = tf.keras.models.Model(inputs=[input_perf, input_fc], outputs=outputs)
+    
+    return model
+
+
+def lstm_classifier_model(window):
+    # Performance model
+    input_perf = tf.keras.layers.Input(shape=window.train['X'].shape[1:])
+    x_seq = tf.keras.layers.LSTM(64, return_sequences=True, dropout=0.2)(input_perf)
+    x_seq = tf.keras.layers.LSTM(64, return_sequences=True, dropout=0.2)(x_seq)
+    x_perf = tf.keras.layers.LSTM(64, return_sequences=False, dropout=0.2)(x_seq)
+    
+    # Weather forecast model
+    input_fc = tf.keras.layers.Input(shape=window.train['X_fc'].shape[1:])
+    x_fc_seq = tf.keras.layers.LSTM(64, return_sequences=True, dropout=0.2)(input_fc)
+    x_fc_seq = tf.keras.layers.LSTM(64, return_sequences=True, dropout=0.2)(x_fc_seq)
+    x_fc = tf.keras.layers.LSTM(64, return_sequences=False, dropout=0.2)(x_fc_seq)
+    
+    # Combined model
+    combined = tf.keras.layers.concatenate([x_perf, x_fc], axis=1)
+    x = tf.keras.layers.Dense(128, activation='relu')(combined)
+    x = tf.keras.layers.Dropout(0.2)(x)
+    x = tf.keras.layers.Dense(64, activation='relu')(x)
+    x = tf.keras.layers.Dropout(0.5)(x)
+    outputs = tf.keras.layers.Dense(3, activation="softmax")(x)
+    
+    # Reshape (batch, sequences, features)
+    outputs = tf.keras.layers.Reshape(window.train['y'].shape[1:])(outputs)
+    
+    model = tf.keras.models.Model(inputs=[input_perf, input_fc], outputs=outputs)
+    
+    return model
+
+def gru_regressor_model(window):
+    # Performance model
+    input_perf = tf.keras.layers.Input(shape=window.train['X'].shape[1:])
+    x_seq = tf.keras.layers.LSTM(64, return_sequences=True, dropout=0.2)(input_perf)
+    x_seq = tf.keras.layers.LSTM(64, return_sequences=True, dropout=0.2)(x_seq)
+    x_perf = tf.keras.layers.LSTM(64, return_sequences=False, dropout=0.2)(x_seq)
+    
+    # Weather forecast model
+    input_fc = tf.keras.layers.Input(shape=window.train['X_fc'].shape[1:])
+    x_fc_seq = tf.keras.layers.LSTM(64, return_sequences=True, dropout=0.2)(input_fc)
+    x_fc_seq = tf.keras.layers.LSTM(64, return_sequences=True, dropout=0.2)(x_fc_seq)
+    x_fc = tf.keras.layers.LSTM(64, return_sequences=False, dropout=0.2)(x_fc_seq)
+    
+    # Combined model
+    combined = tf.keras.layers.concatenate([x_perf, x_fc], axis=1)
+    x = tf.keras.layers.Dense(128, activation='relu')(combined)
+    x = tf.keras.layers.Dense(64, activation='relu')(x)
+    outputs = tf.keras.layers.Dense(window.train['y'].shape[1], activation="relu")(x)
+    
+    # Reshape (batch, sequences, features)
+    outputs = tf.keras.layers.Reshape(window.train['y'].shape[1:])(outputs)
+    
+    model = tf.keras.models.Model(inputs=[input_perf, input_fc], outputs=outputs)
+    
+    return model
+
+
+def gru_classifier_model(window):
+    # Performance model
+    input_perf = tf.keras.layers.Input(shape=window.train['X'].shape[1:])
+    x_seq = tf.keras.layers.LSTM(64, return_sequences=True, dropout=0.2)(input_perf)
+    x_seq = tf.keras.layers.LSTM(64, return_sequences=True, dropout=0.2)(x_seq)
+    x_perf = tf.keras.layers.LSTM(64, return_sequences=False, dropout=0.2)(x_seq)
+    
+    # Weather forecast model
+    input_fc = tf.keras.layers.Input(shape=window.train['X_fc'].shape[1:])
+    x_fc_seq = tf.keras.layers.LSTM(64, return_sequences=True, dropout=0.2)(input_fc)
+    x_fc_seq = tf.keras.layers.LSTM(64, return_sequences=True, dropout=0.2)(x_fc_seq)
+    x_fc = tf.keras.layers.LSTM(64, return_sequences=False, dropout=0.2)(x_fc_seq)
+    
+    # Combined model
+    combined = tf.keras.layers.concatenate([x_perf, x_fc], axis=1)
+    x = tf.keras.layers.Dense(128, activation='relu')(combined)
+    x = tf.keras.layers.Dropout(0.2)(x)
+    x = tf.keras.layers.Dense(64, activation='relu')(x)
+    x = tf.keras.layers.Dropout(0.5)(x)
+    outputs = tf.keras.layers.Dense(3, activation="softmax")(x)
+    
+    # Reshape (batch, sequences, features)
+    outputs = tf.keras.layers.Reshape(window.train['y'].shape[1:])(outputs)
+    
+    model = tf.keras.models.Model(inputs=[input_perf, input_fc], outputs=outputs)
+    
+    return model
+
 
 
 class LSTM_Regressor_Model(tf.keras.Model):
-    def __init__(self, units, n_steps_out, num_features):
+    def __init__(self, window, units=32):
         super().__init__()
         # Variables
-        self.n_steps_out = n_steps_out
+        self.window = window
         self.units = units
-        
-        # Layers
-        self.lstm_cell = tf.keras.layers.LSTMCell(units)
-        self.dense = tf.keras.layers.Dense(num_features)
-          
-    def call(self, inputs, training=None):
-        # Use a TensorArray to capture dynamically unrolled outputs.
-        predictions = []
-        # Initialize the LSTM state.
-        prediction, state = self.warmup(inputs)
-        # Insert the first prediction.
-        predictions.append(prediction)
 
-        # Run the rest of the prediction steps.
-        for n in range(1, self.n_steps_out):
-            # Use the last prediction as input.
-            x = prediction
-            # Execute one lstm step.
-            x, state = self.lstm_cell(x, states=state,
-                                      training=training)
-            # Convert the lstm output to a prediction.
-            prediction = self.dense(x)
-            # Add the prediction to the output.
-            predictions.append(prediction)
+        # Define layers 
+        self.input_layer_perf = tf.keras.layers.Input(shape=self.window.train['X'].shape[1:])
+        self.input_layer_fc = tf.keras.layers.Input(shape=self.window.train['X_fc'].shape[1:])
+        self.lstm_inner_layer = tf.keras.layers.LSTM(units, return_sequences=True, dropout=0.2)
+        self.lstm_outer_layer = tf.keras.layers.LSTM(units, return_sequences=False, dropout=0.2)
+        self.dense_1 = tf.keras.layers.Dense(units*2, activation='relu')
+        self.dense_2 = tf.keras.layers.Dense(units, activation='relu')
+        self.dense_final = tf.keras.layers.Dense(self.window.train['y'].shape[1])
+        self.reshape_layer = tf.keras.layers.Reshape(self.window.train['y'].shape[1:])
 
-            # predictions.shape => (time, batch, features)
-            predictions = tf.stack(predictions)
-            # predictions.shape => (batch, time, features)
-            predictions = tf.transpose(predictions, [1, 0, 2])
+    # def build(self, window):
+    #     input_perf_shape = window.train['X'].shape[1:]
+    #     input_fc_shape = window.train['X_fc'].shape[1:]
+
+    #     input_perf = tf.keras.layers.Input(shape=input_perf_shape)
+    #     input_fc = tf.keras.layers.Input(shape=input_fc_shape)
+
+    #     output_perf = self.perf_model(input_perf)
+    #     output_fc = self.forecast_model(input_fc)
+
+    #     combined_output = tf.keras.layers.concatenate([output_perf, output_fc], axis=1)
+
+    #     predictions = self.combined_model(combined_output)
+
+    #     return predictions
+
+    def perf_model(self, inputs, training=False):
+        # Performance model
+        input_perf = inputs[0]
+        print('perf_model:', input_perf)
+        x = self.input_layer_perf(input_perf)
+        x = self.lstm_inner_layer(x)
+        x = self.lstm_inner_layer(x)
+        output = self.lstm_outer_layer(x)
+        print('perf_model_output:',output)
+        return output
+    
+    def forecast_model(self, inputs, training=False):
+        # Weather forecast model
+        input_fc = inputs[1]
+        print('fc_model:',input)
+        x = self.input_layer_fc(input_fc)
+        x = self.lstm_inner_layer(x)
+        x = self.lstm_inner_layer(x)
+        output = self.lstm_outer_layer(x)
+        print('fc_model_output:',output)
+        return output
         
-        prediction = tf.keras.layers.Dense(self.n_steps_out)(predictions)
+    def combined_model(self, input, training=False):
+        # Combined model
+        x = self.dense_1(input)
+        x = self.dense_2(x)
+        outputs = self.dense_final(x)
         
+        # Reshape (batch, sequences, features)
+        predictions = self.reshape_layer(outputs)
+                
         return predictions
+                
+    def call(self, inputs, training=False):
 
-    def compile_and_fit(name, model, window, patience=5, epoch=100):
+        input_perf = inputs[0]
+        input_fc = inputs[1]
+        print(input_perf)
+        print(input_fc)
 
-        # Early stopping
-        early_stopping = tf.keras.callbacks.EarlyStopping(monitor='val_loss',
-                                                        patience=patience,
-                                                        mode='min',
-                                                        restore_best_weights=True)
+        x_perf = self.input_layer_perf(input_perf)
+        x_perf = self.lstm_inner_layer(x_perf)
+        x_perf = self.lstm_inner_layer(x_perf)
+        y_perf = self.lstm_outer_layer(x_perf)
+        print('perf_model_output:',y_perf)
 
-        # Reduce learning rate by an order of magnitude if val_loss does not improve for 20 epoch
-        rlrop = tf.keras.callbacks.ReduceLROnPlateau(monitor='val_loss', 
-                                                    factor=0.1,
-                                                    min_lr=1e-7,
-                                                    verbose=1,
-                                                    patience=10)
+        combined_outputs = tf.keras.layers.concatenate([y_perf, output_fc], axis=1)
 
-        # Model checkpoint
-        checkpoint=tf.keras.callbacks.ModelCheckpoint(f"./checkpoint/Feedback_Model_{model_name}.h5", 
-                                                    save_best_only=True,
-                                                    save_weights_only=True)
+        predictions = self.combined_model(combined_outputs, training)
 
-        model.compile(loss=tf.losses.MeanSquaredError(),
-                    optimizer=tf.optimizers.Adam(),
-                    metrics=[tf.metrics.MeanAbsoluteError()])
-
-        history = model.fit(window.load_train, epochs=epoch,
-                            validation_data=window.load_val,
-                            callbacks=[early_stopping, rlrop, checkpoint])
-        return history
+        return predictions
 
 
 class LSTM_Classifier_Model(tf.keras.Model):
@@ -130,35 +261,6 @@ class LSTM_Classifier_Model(tf.keras.Model):
         prediction = tf.keras.layers.Dense(self.n_steps_out)(predictions)
         
         return predictions
-
-    def compile_and_fit(name, model, window, patience=5, epoch=100):
-
-        # Early stopping
-        early_stopping = tf.keras.callbacks.EarlyStopping(monitor='val_loss',
-                                                        patience=patience,
-                                                        mode='min',
-                                                        restore_best_weights=True)
-
-        # Reduce learning rate by an order of magnitude if val_loss does not improve for 20 epoch
-        rlrop = tf.keras.callbacks.ReduceLROnPlateau(monitor='val_loss', 
-                                                    factor=0.1,
-                                                    min_lr=1e-7,
-                                                    verbose=1,
-                                                    patience=10)
-
-        # Model checkpoint
-        checkpoint=tf.keras.callbacks.ModelCheckpoint(f"./checkpoint/Feedback_Model_{model_name}.h5", 
-                                                    save_best_only=True,
-                                                    save_weights_only=True)
-
-        model.compile(loss=tf.losses.MeanSquaredError(),
-                    optimizer=tf.optimizers.Adam(),
-                    metrics=[tf.metrics.MeanAbsoluteError()])
-
-        history = model.fit(window.load_train, epochs=epoch,
-                            validation_data=window.load_val,
-                            callbacks=[early_stopping, rlrop, checkpoint])
-        return history
 
 
 class Feedback_Model(tf.keras.Model):
@@ -228,34 +330,8 @@ class Feedback_Model(tf.keras.Model):
         
         return predictions
 
-    def compile_and_fit(name, model, window, patience=5, epoch=100):
 
-        # Early stopping
-        early_stopping = tf.keras.callbacks.EarlyStopping(monitor='val_loss',
-                                                        patience=patience,
-                                                        mode='min',
-                                                        restore_best_weights=True)
 
-        # Reduce learning rate by an order of magnitude if val_loss does not improve for 20 epoch
-        rlrop = tf.keras.callbacks.ReduceLROnPlateau(monitor='val_loss', 
-                                                    factor=0.1,
-                                                    min_lr=1e-7,
-                                                    verbose=1,
-                                                    patience=10)
-
-        # Model checkpoint
-        checkpoint=tf.keras.callbacks.ModelCheckpoint(f"./checkpoint/Feedback_Model_{model_name}.h5", 
-                                                    save_best_only=True,
-                                                    save_weights_only=True)
-
-        model.compile(loss=tf.losses.MeanSquaredError(),
-                    optimizer=tf.optimizers.Adam(),
-                    metrics=[tf.metrics.MeanAbsoluteError()])
-
-        history = model.fit(window.load_train, epochs=epoch,
-                            validation_data=window.load_val,
-                            callbacks=[early_stopping, rlrop, checkpoint])
-        return history
 
 
 

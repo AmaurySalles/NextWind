@@ -583,7 +583,7 @@ class SequenceGenerator():
             if self.example_seq is None:
                 self.example_seq=dict()
                 # Select 3 random sequences from val set
-                i = np.random.randint(0,len(self.val_seq['X']),size=3)
+                i = np.random.randint(0,len(self.val_seq['X']),size=10)
                 self.example_seq['X'] = self.val_seq['X'][i]
                 self.example_seq['y'] = self.val_seq['y'][i]
                 try:
@@ -593,70 +593,3 @@ class SequenceGenerator():
             return self.example_seq
         except TypeError:
             return print("Could not find any sequences to load - Provide dataset to generate sequences.")
-        
-    def plot(self, model=None, dataset=None, plot_col='Power'):
-        """
-        Graphically represent the historical target (part of inputs), target and predictions for validation dataset 3 examples
-        Feed a specific model to get its predictions, with specified input data & data, else it will fetch example (random) val set data
-        ---------
-        Parameters:
-        model: 'Object'
-                Class object of the trained model to use & predict from
-        data: 'Dict'
-                Dict containing inputs ['X'] and label / target ['y']
-                If none given, data from window.example / (random) val set data will be used
-        plot_col: 'str'
-                Name of the label column, required if not passing any dataset
-        ---------
-        Returns:
-        A graph showing inputs, target and prediction of the specified model 
-        """
-        # Select data
-        if dataset is None:
-            inputs = self.example['X']
-            labels = self.example['y']
-        else:
-            inputs = dataset['X']
-            labels = dataset['y']
-
-        # Figure out label index 
-        plot_col_index = self.column_indices[plot_col]
-        
-        # Plots 
-        plt.figure(figsize=(12, 8))
-        for n in range(3):
-            # Increase subplot number
-            plt.subplot(3, 1, n+1)
-
-            # Plot historical target (part of inputs)
-            plt.plot(self.input_indices, inputs[n, :, plot_col_index],
-                    label='Inputs', marker='.', zorder=-10)
-
-            # Find label / target
-            if self.label_columns:
-                label_col_index = self.label_columns_indices.get(plot_col, None)
-            else:
-                label_col_index = plot_col_index
-
-            if label_col_index is None:
-                continue
-
-            # Plot label / target
-            plt.plot(self.label_indices, labels[n, :, label_col_index],
-                        label='Labels', c='#2ca02c', marker='.')
-
-            # Find predictions
-            if model is not None:
-                predictions = model(inputs)
-
-                # Plot predictions
-                plt.plot(self.label_indices, predictions[0, :, label_col_index],
-                            marker='X', label='Predictions', c='#ff7f0e')
-
-            # Legend, axis labels & others
-            if n == 0:
-                plt.legend()
-            
-            plt.ylabel(f'{plot_col} [normed]')
-            plt.xlabel('Time [h]')
-            plt.tight_layout()
