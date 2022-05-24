@@ -3,7 +3,7 @@ import pandas as pd
 import datetime as datetime
 import requests
 
-# Period with low # NaNs, following data analysis
+# Selecting period with least # NaNs, following data analysis
 START_DATE = '2019-05-05'
 END_DATE = '2021-09-30'
 
@@ -48,7 +48,7 @@ def get_WTG_data(num_datasets=25):
             WTG_data = WTG_data.reindex(ref_date_range)
 
             # Remove start/end periods with high NaNs
-            WTG_data = WTG_data.loc['2019-05-05':'2021-09-30']
+            WTG_data = WTG_data.loc[START_DATE:END_DATE]
 
             # Fill in na_values
             WTG_data.interpolate(axis=0, inplace=True)
