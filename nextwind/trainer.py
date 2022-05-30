@@ -35,14 +35,14 @@ def trainer():
     val_performance['baseline'] = baseline.evaluate(x=val['X'], y=val['y'], verbose=1)
     test_performance['baseline'] = baseline.evaluate(x=test['X'], y=test['y'], verbose=1)
 
-    plot_examples(baseline, window)
+    plot_examples(baseline, window, forecast=False)
 
     # Init LSTM model
     lstm_model = lstm_regressor_model(window)
 
     history = compile_and_fit(lstm_model, window, epoch=5)
-    val_performance['lstm_model'] = lstm_model.evaluate(x=val['X'], y=val['y'], verbose=1)
-    test_performance['lstm_model'] = lstm_model.evaluate(x=test['X'], y=test['y'], verbose=1)
+    val_performance['lstm_model'] = lstm_model.evaluate(x=[val['X'], val['X_fc']], y=val['y'], verbose=1)
+    test_performance['lstm_model'] = lstm_model.evaluate(x=[test['X'], test['X_fc']], y=test['y'], verbose=1)
 
     plot_loss(history)
     plot_examples(lstm_model, window)
