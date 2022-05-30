@@ -136,15 +136,104 @@ def gru_classifier_model(window):
 
 
 
-class LSTM_Regressor_Model(tf.keras.Model):
-    def __init__(self, window, units=32):
+
+
+class LSTM_Model(tf.keras.Model):
+  def __init__(self, window, units=32, hidden_layers=3):
+    super(LSTM_Model, self).__init__()
+    # Variables
+    self.window = window
+    self.units = units
+    self.hidden_layers = hidden_layers
+   
+    # Models
+    self.performance_model = tf.keras.Sequential([
+        tf.keras.layers.Input(shape=self.window.train['X'].shape[1:]),
+        tf.keras.layers.LSTM(units, return_sequences=True, dropout=0.2),
+        tf.keras.layers.LSTM(units, return_sequences=False, dropout=0.2)
+    ])
+    self.forecast_model = tf.keras.Sequential([
+        tf.keras.layers.Input(shape=self.window.train['X_fc'].shape[1:]),
+        tf.keras.layers.LSTM(units, return_sequences=True, dropout=0.2),
+        tf.keras.layers.LSTM(units, return_sequences=False, dropout=0.2)
+    ])
+    self.combined_model = tf.keras.Sequential([
+        tf.keras.layers.Concatenate(),
+        tf.keras.layers.Dense(units*2, activation='relu'),
+        tf.keras.layers.Dense(units, activation='relu'),
+        tf.keras.layers.Dense(self.window.train['y'].shape[1]),
+        tf.keras.layers.Reshape(self.window.train['y'].shape[1:])
+    ])
+
+  def call(self, inputs):
+    
+    # Run train['X'] through performance model
+    print(inputs[0].shape)
+    perf_predictions = self.performance_model(inputs[0])
+
+    # Run train['X_fc'] through forecast model
+    print(inputs[1].shape)
+    fc_predictions = self.forecast_model(inputs[1])
+
+    # Run combined output into final model
+    predictions = self.combined_model([perf_predictions, fc_predictions])
+
+    return predictions
+
+
+
+
+#  TODO: Complete the LSTM model builders
+class LSTM_Model_3(tf.keras.Model):
+    def __init__(self, window, shape, units=32, hidden_layers=3):
         super().__init__()
         # Variables
         self.window = window
         self.units = units
+        self.hidden_layers = hidden_layers
+        self.shape = shape
+        print(self.shape)
+        print(self.shape[1:])
+
+        # Define layers
+        self.input_layer = tf.keras.layers.Input(shape=self.shape[1:])
+        self.lstm_hidden_layer = tf.keras.layers.LSTM(units, return_sequences=True, dropout=0.2)
+        self.lstm_outer_layer = tf.keras.layers.LSTM(units, return_sequences=False, dropout=0.2)
+        self.dense_1 = tf.keras.layers.Dense(units*2, activation='relu')
+        self.dense_2 = tf.keras.layers.Dense(units, activation='relu')
+        self.dense_final = tf.keras.layers.Dense(self.window.train['y'].shape[1])
+        self.reshape_layer = tf.keras.layers.Reshape(self.window.train['y'].shape[1:])
+
+    def call(self, input, training=False):
+        
+        print('model_input:', input)
+        print('model_input_shape:', input.shape)
+        
+        input_x = self.input_layer(input)
+        print(input_x)
+        # for i in self.hidden_layers:
+        #     print(i)
+        x = self.lstm_hidden_layer(input_x)
+        prediction = self.lstm_outer_layer(x)
+        
+        print('model_output:',prediction)
+        print('model_output_shape:', prediction.shape)
+        
+        return prediction
+
+
+
+
+class LSTM_Model_Builder(tf.keras.Model):
+    def __init__(self, window, units=32, hidden_layers=3):
+        super(LSTM_Model_Builder, self).__init__()
+        # Variables
+        self.window = window
+        self.units = units
+        self.hidden_layers = hidden_layers
 
         # Define layers 
-        self.input_layer_perf = tf.keras.layers.Input(shape=self.window.train['X'].shape[1:])
+        self.input_layer = tf.keras.layers.Input(shape=self.window.train['X'].shape[1:])
         self.input_layer_fc = tf.keras.layers.Input(shape=self.window.train['X_fc'].shape[1:])
         self.lstm_inner_layer = tf.keras.layers.LSTM(units, return_sequences=True, dropout=0.2)
         self.lstm_outer_layer = tf.keras.layers.LSTM(units, return_sequences=False, dropout=0.2)
@@ -152,6 +241,9 @@ class LSTM_Regressor_Model(tf.keras.Model):
         self.dense_2 = tf.keras.layers.Dense(units, activation='relu')
         self.dense_final = tf.keras.layers.Dense(self.window.train['y'].shape[1])
         self.reshape_layer = tf.keras.layers.Reshape(self.window.train['y'].shape[1:])
+
+        # Define models
+        self.perf_model = Performance_Model(self.window, self.units, self.hidden_layers)
 
     # def build(self, window):
     #     input_perf_shape = window.train['X'].shape[1:]
@@ -169,16 +261,22 @@ class LSTM_Regressor_Model(tf.keras.Model):
 
     #     return predictions
 
-    def perf_model(self, inputs, training=False):
-        # Performance model
-        input_perf = inputs[0]
-        print('perf_model:', input_perf)
-        x = self.input_layer_perf(input_perf)
-        x = self.lstm_inner_layer(x)
-        x = self.lstm_inner_layer(x)
-        output = self.lstm_outer_layer(x)
-        print('perf_model_output:',output)
-        return output
+    class Performance_Model(tf.keras.Model):
+        def __init__(self, window, units=32, hidden_layers=3):
+            super(Performance_Model, self).__init__()
+            # Variables
+            self.window = window
+            self.units = units
+            self.hidden_layers = hidden_layers
+            # Performance model
+            input_perf = inputs[0]
+            print('perf_model:', input_perf)
+            x = self.input_layer_perf(input_perf)
+            x = self.lstm_inner_layer(x)
+            x = self.lstm_inner_layer(x)
+            output = self.lstm_outer_layer(x)
+            print('perf_model_output:',output)
+            return output
     
     def forecast_model(self, inputs, training=False):
         # Weather forecast model
@@ -221,46 +319,6 @@ class LSTM_Regressor_Model(tf.keras.Model):
 
         return predictions
 
-
-class LSTM_Classifier_Model(tf.keras.Model):
-    def __init__(self, units, n_steps_out, num_features):
-        super().__init__()
-        # Variables
-        self.n_steps_out = n_steps_out
-        self.units = units
-        
-        # Layers
-        self.lstm_cell = tf.keras.layers.LSTMCell(units)
-        self.dense = tf.keras.layers.Dense(num_features)
-          
-    def call(self, inputs, training=None):
-        # Use a TensorArray to capture dynamically unrolled outputs.
-        predictions = []
-        # Initialize the LSTM state.
-        prediction, state = self.warmup(inputs)
-        # Insert the first prediction.
-        predictions.append(prediction)
-
-        # Run the rest of the prediction steps.
-        for n in range(1, self.n_steps_out):
-            # Use the last prediction as input.
-            x = prediction
-            # Execute one lstm step.
-            x, state = self.lstm_cell(x, states=state,
-                                      training=training)
-            # Convert the lstm output to a prediction.
-            prediction = self.dense(x)
-            # Add the prediction to the output.
-            predictions.append(prediction)
-
-            # predictions.shape => (time, batch, features)
-            predictions = tf.stack(predictions)
-            # predictions.shape => (batch, time, features)
-            predictions = tf.transpose(predictions, [1, 0, 2])
-        
-        prediction = tf.keras.layers.Dense(self.n_steps_out)(predictions)
-        
-        return predictions
 
 
 class Feedback_Model(tf.keras.Model):
