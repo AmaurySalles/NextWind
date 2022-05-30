@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 
 from nextwind.preproc import make_datasets
 from nextwind.preproc import SequenceGenerator
-from nextwind.models import Baseline_model
+from nextwind.models import Baseline_model, lstm_regressor_model
 
 def trainer():
 
@@ -22,26 +22,52 @@ def trainer():
     # Retrieve sequences
     train, val, test = window.get_sequences()
 
+    # Init model scores
+    val_performance = {}
+    test_performance = {}
+
     # Init baseline model
     baseline = Baseline_model(window)
 
     baseline.compile(loss=tf.losses.MeanSquaredError(),
                     metrics=[tf.metrics.MeanAbsoluteError()])
 
-    val_performance = baseline.evaluate(x=val['X'], y=val['y'], verbose=1)
-    test_performance = baseline.evaluate(x=test['X'], y=test['y'], verbose=1)
+    val_performance['baseline'] = baseline.evaluate(x=val['X'], y=val['y'], verbose=1)
+    test_performance['baseline'] = baseline.evaluate(x=test['X'], y=test['y'], verbose=1)
+
+    plot_examples(baseline, window)
+
+    # Init LSTM model
+    lstm_model = lstm_regressor_model(window)
+
+    history = compile_and_fit(lstm_model, window, epoch=5)
+    val_performance['lstm_model'] = lstm_model.evaluate(x=val['X'], y=val['y'], verbose=1)
+    test_performance['lstm_model'] = lstm_model.evaluate(x=test['X'], y=test['y'], verbose=1)
+
+    plot_loss(history)
+    plot_examples(lstm_model, window)
+
+    
 
 
-    window.plot(baseline)
+def compile_and_fit(model, window, patience=5, epoch=20, name=None, forecast=True):
+    """
+    Compiles given model, and fits with given window's data.
+    """
+    # Fetch inputs
+    train_inputs = [window.train['X']]
+    val_inputs = [window.val['X']]
 
-def compile_and_fit(name, model, window, forecast=True, patience=5, epoch=20):
-
+    if forecast:
+        train_inputs.append(window.train['X_fc'])
+        val_inputs.append(window.val['X_fc'])
 
     # Early stopping
     early_stopping = tf.keras.callbacks.EarlyStopping(monitor='val_loss',
                                                     patience=patience,
                                                     mode='min',
                                                     restore_best_weights=True)
+    callbacks = [early_stopping]
 
     # Reduce learning rate by an order of magnitude if val_loss does not improve for 20 epoch
     # rlrop = tf.keras.callbacks.ReduceLROnPlateau(monitor='val_loss', 
@@ -49,28 +75,27 @@ def compile_and_fit(name, model, window, forecast=True, patience=5, epoch=20):
     #                                             min_lr=1e-7,
     #                                             verbose=1,
     #                                             patience=10)
+    # callbacks.append(rlrop)
 
     # Model checkpoint
-    # checkpoint=tf.keras.callbacks.ModelCheckpoint(f"./checkpoint/Feedback_Model_{name}.h5", 
-    #                                             save_best_only=True,
-    #                                             save_weights_only=True)
+    if name:
+        checkpoint=tf.keras.callbacks.ModelCheckpoint(f"./checkpoint/Feedback_Model_{name}.h5", 
+                                                    save_best_only=True,
+                                                    save_weights_only=True)
+        callbacks.append(checkpoint)
 
+    # Compile
     model.compile(loss=tf.losses.MeanSquaredError(),
                 optimizer=tf.optimizers.Adam(),
                 metrics=[tf.metrics.MeanAbsoluteError()])
 
-    if forecast is True:
-        train_inputs = [window.train['X'], window.train['X_fc']]
-        val_inputs = [window.val['X'], window.val['X_fc']]
-    else:
-        train_inputs = window.train['X']
-        val_inputs = window.val['X']
-
+    # Fit
     history = model.fit(x = train_inputs, y=window.train['y'],
                         validation_data= [val_inputs, window.val['y']],
-                        epochs=epoch, callbacks=[early_stopping])
+                        epochs=epoch, callbacks=callbacks)
     
     return history
+
 
 def plot_examples(model, window, n=3, forecast=True):
     """
@@ -134,6 +159,7 @@ def plot_examples(model, window, n=3, forecast=True):
         plt.xlabel('Time [h]')
         plt.tight_layout()
 
+
 def plot_loss(history):
     """
     Graphically represent training and validation set loss history 
@@ -154,6 +180,7 @@ def plot_loss(history):
     plt.xlabel('epoch')
     plt.legend(['train', 'test'], loc='upper left')
     plt.show()  
+
 
 
 if __name__ == "__main__":
