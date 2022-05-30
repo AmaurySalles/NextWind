@@ -14,8 +14,8 @@ deactivate; virtualenv -ppython3 ~/venv ; source ~/venv/bin/activate
 Clone the project and install it:
 
 ```bash
-git clone git@github.com:AmaurySalles/projectwind.git
-cd projectwind
+git clone git@github.com:AmaurySalles/nextwind.git
+cd nextwind
 pip install -r requirements.txt
 make clean install test                # install and test
 ```
@@ -25,5 +25,5 @@ Functionnal test with a script:
 cd
 mkdir tmp
 cd tmp
-projectwind-run
+nextwind-run
 ```
